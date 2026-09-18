@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoClean Pro — Professional Video Metadata Remover & Re-Encoder</title>
+    <meta name="description" content="Professional browser-based video processing tool. Real FFmpeg engine strips metadata, re-encodes streams, and optimizes video files — 100% in your browser.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="enhanced.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     NAVBAR
+═══════════════════════════════════════════════════════ -->
+<nav id="mainNav">
+    <a href="index.html" class="logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">Video<span>Clean</span> Pro</div>
+    </a>
+
+    <div class="hamburger" id="hamburger">
+        <span></span><span></span><span></span>
+    </div>
+
+    <ul class="nav-links" id="navLinks">
+        <li><a href="index.html" class="active">Studio</a></li>
+        <li><a href="index.html#how-it-works">How It Works</a></li>
+        <li><a href="index.html#pricing">Pricing</a></li>
+        <li><a href="blogs.html">Guides</a></li>
+        <li><a href="sellchannel.html">Sell Account</a></li>
+    </ul>
+
+    <div class="nav-actions">
+        <button class="btn-secondary" id="navLoginBtn" onclick="openAuthModal('login')">Login</button>
+        <button class="cta-btn" onclick="openYoutubeTrial()">⚡ Free Trial</button>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO
+═══════════════════════════════════════════════════════ -->
+<header class="hero" id="home">
+    <div class="hero-content">
+        <div class="badge badge-glow">🧬 Real FFmpeg Engine — Not a Simulation</div>
+        <h1>
+            Professional Video<br>
+            <span class="gradient-text">Processing Studio</span>
+        </h1>
+        <p class="lead">
+            Real browser-based FFmpeg processing — strip metadata, re-encode streams, 
+            and optimize video files completely in your browser. No upload to any server.
+        </p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MAIN STUDIO TOOL
+    ══════════════════════════════════════════════ -->
+    <div class="studio-wrapper">
+
+        <!-- LEFT: UPLOAD + OPTIONS -->
+        <div class="studio-left">
+
+            <!-- Drop Zone -->
+            <div class="drop-area" id="dropArea">
+                <div class="drop-icon" id="dropIcon">📤</div>
+                <div class="drop-text">
+                    <h4>Drop Video Here</h4>
+                    <p>MP4, MOV, MKV, WEBM — up to 2 GB</p>
+                </div>
+                <input type="file" id="videoFileInput" accept="video/*" style="display:none">
+            </div>
+
+            <!-- File Info Row -->
+            <div class="file-info-row" id="fileInfoRow" style="display:none">
+                <div class="file-chip">
+                    <span class="chip-icon">🎬</span>
+                    <div class="chip-text">
+                        <div class="chip-name" id="chipName">video.mp4</div>
+                        <div class="chip-size" id="chipSize">— MB</div>
+                    </div>
+                </div>
+                <button class="clear-btn" id="clearFileBtn" title="Remove file">✕</button>
+            </div>
+
+            <!-- ─── PROCESSING OPTIONS PANEL ─── -->
+            <div class="options-panel" id="optionsPanel">
+                <div class="options-header">
+                    <span>⚙️</span> Processing Options
+                    <span class="options-tag">FFmpeg</span>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="option-group">
+                    <label class="option-item">
+                        <input type="checkbox" id="optStripMeta" checked>
+                        <span class="custom-check"></span>
+                        <div class="option-label-text">
+                            <strong>Strip All Metadata</strong>
+                            <span>Remove EXIF, GPS, Camera ID, Device Serial, Creation Date</span>
+                        </div>
+                    </label>
+
+                    <label class="option-item">
+                        <input type="checkbox" id="optReencodeVideo" checked>
+                        <span class="custom-check"></span>
+                        <div class="option-label-text">
+                            <strong>Re-Encode Video Stream</strong>
+                            <span>New x264 video encoding with pixel-level filter (unsharp)</span>
+                        </div>
+                    </label>
+
+                    <label class="option-item">
+                        <input type="checkbox" id="optReencodeAudio" checked>
+                        <span class="custom-check"></span>
+                        <div class="option-label-text">
+                            <strong>Re-Encode Audio Stream</strong>
+                            <span>Fresh AAC encoding with 0.1% tempo micro-shift</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- CRF Quality Slider -->
+                <div class="slider-group" id="crfGroup">
+                    <div class="slider-header">
+                        <span>Video Quality (CRF)</span>
+                        <span class="crf-value-label" id="crfLabel">23 — Balanced</span>
+                    </div>
+                    <input type="range" class="quality-slider" id="crfSlider" min="18" max="28" value="23">
+                    <div class="slider-scale">
+                        <span>Best Quality (18)</span>
+                        <span>Smaller File (28)</span>
+                    </div>
+                </div>
+
+                <!-- Format Selection -->
+                <div class="format-group">
+                    <span class="format-label">Output Format:</span>
+                    <div class="format-btns">
+                        <button class="fmt-btn active" data-fmt="mp4" id="fmtMp4">MP4</button>
+                        <button class="fmt-btn" data-fmt="webm" id="fmtWebm">WebM</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Process Button -->
+            <button class="process-action-btn" id="startProcessBtn">
+                <span id="processBtnIcon">⚡</span>
+                <span id="processBtnText">Start Real Processing</span>
+            </button>
+        </div>
+
+        <!-- RIGHT: MONITOR PANEL -->
+        <div class="studio-right">
+
+            <!-- Video Preview Monitor -->
+            <div class="monitor-panel" id="monitorPanel">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState">
+                    <div style="font-size:3.5rem; opacity:0.4;">🎬</div>
+                    <p style="font-weight:700; margin-top:1rem;">Preview Window</p>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.3rem;">
+                        Upload a video to begin
+                    </p>
+                </div>
+
+                <!-- Video Player -->
+                <video id="videoPreview" class="video-player" controls playsinline style="display:none"></video>
+
+                <!-- AI Processing Overlay -->
+                <div class="ai-overlay hidden" id="aiOverlay">
+                    <div class="spinner-container">
+                        <div class="ai-spinner-ring"></div>
+                        <div class="ai-spinner-ring"></div>
+                        <div class="ai-spinner-ring"></div>
+                        <div class="spinner-core"></div>
+                    </div>
+                    <h3 class="ai-status-title" id="aiMainStatus">Processing...</h3>
+                    <p class="ai-status-step" id="aiStepText">Initializing FFmpeg engine...</p>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span class="progress-percent-label" id="progressPercent">0%</span>
+                </div>
+
+                <!-- Download Ready Overlay -->
+                <div class="download-overlay hidden" id="downloadOverlay">
+                    <div class="success-badge">✓</div>
+                    <h3 style="font-size:1.3rem; font-weight:800; color:#fff;">Processing Complete!</h3>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); max-width:280px; text-align:center">
+                        All metadata stripped. Streams re-encoded. File ready.
+                    </p>
+                    <button class="download-trigger-btn" id="downloadTriggerBtn">
+                        📥 Download Processed Video
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Panel (shows after processing) -->
+            <div class="stats-panel hidden" id="statsPanel">
+                <div class="stats-header">📊 Processing Report</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-val" id="statOrigSize">—</div>
+                        <div class="stat-lbl">Original Size</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-val gradient-text" id="statNewSize">—</div>
+                        <div class="stat-lbl">Processed Size</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-val" id="statReduction" style="color:var(--accent-green)">—</div>
+                        <div class="stat-lbl">Size Change</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-val" id="statTags" style="color:var(--accent-red)">—</div>
+                        <div class="stat-lbl">Tags Stripped</div>
+                    </div>
+                </div>
+                <div class="stripped-tags-list" id="strippedTagsList"></div>
+            </div>
+
+            <!-- FFmpeg Log Terminal -->
+            <div class="log-terminal" id="logTerminal" style="display:none">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span style="font-size:0.78rem; color:#666; margin-left:10px; font-family:'JetBrains Mono', monospace;">
+                        ffmpeg — real engine output
+                    </span>
+                    <button class="terminal-clear" onclick="document.getElementById('logOutput').innerHTML=''">clear</button>
+                </div>
+                <div class="terminal-body" id="logOutput"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Trust Bar -->
+    <div class="trust-bar">
+        <div class="trust-item">
+            <div class="trust-number">Real</div>
+            <div class="trust-label">FFmpeg WASM Engine</div>
+        </div>
+        <div class="trust-item">
+            <div class="trust-number">0</div>
+            <div class="trust-label">Files Sent to Server</div>
+        </div>
+        <div class="trust-item">
+            <div class="trust-number">12+</div>
+            <div class="trust-label">Metadata Tags Stripped</div>
+        </div>
+        <div class="trust-item">
+            <div class="trust-number">100%</div>
+            <div class="trust-label">Browser-Side Processing</div>
+        </div>
+    </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════
+     HOW IT WORKS
+═══════════════════════════════════════════════════════ -->
+<section class="section" id="how-it-works">
+    <div class="section-header">
+        <div class="badge">Real Processing Pipeline</div>
+        <h2 class="section-title">What Happens To Your Video</h2>
+        <p class="section-subtitle">
+            Every step below is a real FFmpeg operation — you can see the exact commands in the terminal log.
+        </p>
+    </div>
+
+    <div class="steps-grid">
+        <div class="step-card">
+            <div class="step-number">01</div>
+            <div class="step-icon-wrap">🧬</div>
+            <h3>Metadata Stripping</h3>
+            <p>
+                FFmpeg command: <code style="color:var(--accent-cyan); font-size:0.82rem; font-family:'JetBrains Mono',monospace">-map_metadata -1</code><br><br>
+                Removes all embedded EXIF headers — camera model, GPS coordinates, device serial number, creation timestamps, encoder software info.
+            </p>
+        </div>
+
+        <div class="step-card">
+            <div class="step-number">02</div>
+            <div class="step-icon-wrap">🎛️</div>
+            <h3>Video Re-Encoding</h3>
+            <p>
+                FFmpeg command: <code style="color:var(--accent-cyan); font-size:0.82rem; font-family:'JetBrains Mono',monospace">-c:v libx264 -crf [N] -vf unsharp</code><br><br>
+                Full x264 re-encode with unsharp filter alters the pixel-level data while preserving visual quality you can see.
+            </p>
+        </div>
+
+        <div class="step-card">
+            <div class="step-number">03</div>
+            <div class="step-icon-wrap">🔊</div>
+            <h3>Audio Re-Encoding</h3>
+            <p>
+                FFmpeg command: <code style="color:var(--accent-cyan); font-size:0.82rem; font-family:'JetBrains Mono',monospace">-c:a aac -af atempo=0.999</code><br><br>
+                Re-encodes to fresh AAC with a 0.1% imperceptible tempo micro-shift that alters the acoustic waveform without any audible change.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     PRICING
+═══════════════════════════════════════════════════════ -->
+<section class="section" id="pricing">
+    <div class="section-header">
+        <div class="badge">Instant Activation</div>
+        <h2 class="section-title">Choose Your Plan</h2>
+        <p class="section-subtitle">
+            Free trial available. Pro plans unlock larger file sizes and priority processing queue.
+        </p>
+    </div>
+
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <div>
+                <div class="plan-header"><h3>Starter</h3></div>
+                <div class="plan-price-wrap">
+                    <div class="plan-price"><small>₹</small>499</div>
+                    <div class="plan-period">1 Month</div>
+                </div>
+                <ul class="plan-features">
+                    <li class="highlight"><span class="check">✓</span> 20 Video Processes / Month</li>
+                    <li><span class="check">✓</span> Up to 500 MB per video</li>
+                    <li><span class="check">✓</span> Metadata Strip + Re-Encode</li>
+                    <li><span class="check">✓</span> MP4 & WebM output</li>
+                </ul>
+            </div>
+            <button class="plan-cta-btn" onclick="handlePlanSelection('Starter', 499)">Get Starter</button>
+        </div>
+
+        <div class="pricing-card featured">
+            <div class="popular-badge">MOST POPULAR</div>
+            <div>
+                <div class="plan-header"><h3 class="gradient-text">Pro Creator</h3></div>
+                <div class="plan-price-wrap">
+                    <div class="plan-price"><small>₹</small>899</div>
+                    <div class="plan-period">1 Month</div>
+                </div>
+                <ul class="plan-features">
+                    <li class="highlight"><span class="check">✓</span> 50 Processes / Month</li>
+                    <li class="highlight"><span class="check">✓</span> Up to 2 GB per video</li>
+                    <li><span class="check">✓</span> All metadata stripping</li>
+                    <li><span class="check">✓</span> Quality CRF Control (18-28)</li>
+                    <li><span class="check">✓</span> Priority queue access</li>
+                    <li><span class="check">✓</span> No watermark</li>
+                </ul>
+            </div>
+            <button class="plan-cta-btn" onclick="handlePlanSelection('Pro Creator', 899)">Unlock Pro</button>
+        </div>
+
+        <div class="pricing-card">
+            <div>
+                <div class="plan-header"><h3>Enterprise</h3></div>
+                <div class="plan-price-wrap">
+                    <div class="plan-price"><small>₹</small>1799</div>
+                    <div class="plan-period">4 Months</div>
+                </div>
+                <ul class="plan-features">
+                    <li class="highlight"><span class="check">✓</span> 250 Processes / Month</li>
+                    <li class="highlight"><span class="check">✓</span> Unlimited file size</li>
+                    <li><span class="check">✓</span> Bulk processing (5 at once)</li>
+                    <li><span class="check">✓</span> API access</li>
+                    <li><span class="check">✓</span> Dedicated support manager</li>
+                </ul>
+            </div>
+            <button class="plan-cta-btn" onclick="handlePlanSelection('Enterprise', 1799)">Get Enterprise</button>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     FAQ
+═══════════════════════════════════════════════════════ -->
+<section class="section" id="faq">
+    <div class="section-header">
+        <div class="badge">Knowledge Hub</div>
+        <h2 class="section-title">Frequently Asked Questions</h2>
+    </div>
+
+    <div class="faq-search-box">
+        <span class="faq-search-icon">🔍</span>
+        <input type="text" class="faq-search-input" id="faqSearchInput" placeholder="Search FAQs...">
+    </div>
+
+    <div class="faq-categories">
+        <div class="faq-category-block">
+            <h3 class="faq-cat-title"><span>⚙️</span> Technical</h3>
+
+            <div class="faq-item">
+                <div class="faq-question"><span>Is this processing done on my computer or a server?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>100% on your computer. FFmpeg.wasm is a WebAssembly version of FFmpeg that runs inside your browser. Your video file never leaves your device — nothing is uploaded anywhere.</p></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span>Why does the tool take 30-60 seconds to start first time?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>FFmpeg.wasm needs to download the WASM core (~25 MB) on first load. After that, your browser caches it and it loads instantly every time. This is a one-time download.</p></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span>What metadata tags are removed exactly?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>FFmpeg -map_metadata -1 removes: Title, Comment, Artist, Album, GPS Coordinates, Camera Make & Model, Device Serial Number, Creation Date & Time, Encoder Software name, Copyright tag, and all other embedded EXIF/ID3/MP4 box metadata.</p></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span>Does re-encoding reduce video quality?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>At CRF 18-22, the output is visually identical to the original. CRF 23 (default/balanced) produces near-lossless output. Only at CRF 26+ will you notice slight compression. Use the quality slider to control this.</p></div>
+            </div>
+        </div>
+
+        <div class="faq-category-block">
+            <h3 class="faq-cat-title"><span>📋</span> Usage</h3>
+            <div class="faq-item">
+                <div class="faq-question"><span>Which video formats are supported?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>Input: MP4, MOV, MKV, AVI, WEBM, FLV, M4V. Output: MP4 (H.264 + AAC) or WebM (VP8). MP4 is recommended for maximum compatibility.</p></div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span>Is there a file size limit?</span><span class="faq-chevron">▼</span></div>
+                <div class="faq-answer"><p>Free trial: 50 MB. Starter plan: 500 MB. Pro Creator: 2 GB. Enterprise: Unlimited. Large files may take several minutes depending on your CPU speed.</p></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════ -->
+<footer>
+    <div class="footer-grid">
+        <div class="footer-brand">
+            <h2>Video<span>Clean</span> Pro</h2>
+            <p>Professional browser-based video processing powered by real FFmpeg WebAssembly. Your files stay on your device.</p>
+            <a href="https://t.me/crremover" target="_blank" class="btn-secondary" style="padding:0.5rem 1rem; font-size:0.85rem; display:inline-flex; gap:6px;">
+                ✈️ Telegram Support
+            </a>
+        </div>
+        <div class="footer-col">
+            <h4>Tools</h4>
+            <ul>
+                <li><a href="index.html#home">Video Processor</a></li>
+                <li><a href="index.html#pricing">Pricing Plans</a></li>
+                <li><a href="sellchannel.html">Sell Account</a></li>
+                <li><a href="blogs.html">Creator Guides</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Legal</h4>
+            <ul>
+                <li><a href="legal/privacy.html">Privacy Policy</a></li>
+                <li><a href="legal/terms.html">Terms of Service</a></li>
+                <li><a href="legal/disclaimer.html" style="color:var(--accent-red)">Disclaimer</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer-disclaimer-card">
+        <strong>Disclaimer:</strong> VideoClean Pro is a legitimate video file optimization tool. It is intended for use with content you own or have rights to process. Users are solely responsible for ensuring they hold appropriate rights to any content processed. This tool does not encourage or enable copyright infringement.
+    </div>
+
+    <div class="footer-bottom">
+        <div>© 2026 VideoClean Pro. All rights reserved.</div>
+        <div>Powered by FFmpeg.wasm — Real browser processing</div>
+    </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════ -->
+
+<!-- YouTube Trial Modal -->
+<div class="modal-overlay" id="youtubeTrialModal">
+    <div class="modal-card">
+        <button class="modal-close-btn" onclick="closeYoutubeTrial()">✕</button>
+        <div class="yt-icon-circle">▶</div>
+        <h2 style="text-align:center; font-size:1.5rem; font-weight:800; margin-bottom:0.5rem;">Free Trial Access</h2>
+        <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem; line-height:1.6;">
+            Join our YouTube channel to unlock <strong style="color:var(--accent-cyan)">Free Trial</strong> — process videos up to 50 MB.
+        </p>
+        <a href="https://www.youtube.com/shorts/OUgbGqbtsFU" target="_blank" class="yt-btn" onclick="onYoutubeJoinClicked()">
+            <span>▶</span> Join YouTube Channel
+        </a>
+        <p style="text-align:center; font-size:0.78rem; color:var(--text-muted);">After joining, return here and start processing for free.</p>
+    </div>
+</div>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+    <div class="modal-card">
+        <button class="modal-close-btn" onclick="closeAuthModal()">✕</button>
+        <h2 id="authModalTitle" style="font-size:1.4rem; font-weight:800; text-align:center; margin-bottom:0.5rem;">Create Account</h2>
+        <p id="authModalSub" style="text-align:center; color:var(--text-secondary); font-size:0.88rem; margin-bottom:1.5rem;">Enter your mobile number to download processed files.</p>
+        <form id="authForm" onsubmit="handleAuthSubmit(event)">
+            <div class="form-group">
+                <label class="form-label">10-Digit Mobile Number</label>
+                <input type="tel" id="authMobile" class="form-input" placeholder="9876543210" pattern="[0-9]{10}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" id="authPassword" class="form-input" placeholder="Enter password" required>
+            </div>
+            <div class="form-group" id="confirmPassGroup">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" id="authConfirmPassword" class="form-input" placeholder="Confirm password">
+            </div>
+            <button type="submit" class="cta-btn" id="authSubmitBtn" style="width:100%; justify-content:center; padding:0.9rem; margin-top:0.5rem;">
+                Register & Continue
+            </button>
+        </form>
+        <p style="text-align:center; margin-top:1.2rem; font-size:0.85rem; color:var(--accent-cyan); cursor:pointer;" id="authToggleBtn" onclick="toggleAuthMode()">
+            Already have an account? Login here.
+        </p>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal-card" style="text-align:center;">
+        <button class="modal-close-btn" onclick="closePaymentModal()">✕</button>
+        <div class="badge" style="margin-bottom:0.5rem;">UPI / QR Payment</div>
+        <h2 id="paymentPlanName" style="font-size:1.4rem; font-weight:800; margin-bottom:0.3rem;">Pro Creator</h2>
+        <div id="paymentAmountDisplay" style="font-size:2.4rem; font-weight:900; color:var(--accent-cyan); margin-bottom:1rem;">₹899</div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">Scan with PhonePe / Google Pay / Paytm:</p>
+        <div class="qr-box">
+            <svg viewBox="0 0 100 100" width="150" height="150">
+                <rect width="100" height="100" fill="white"/>
+                <path d="M10,10 h20 v20 h-20 z M15,15 h10 v10 h-10 z" fill="#111"/>
+                <path d="M70,10 h20 v20 h-20 z M75,15 h10 v10 h-10 z" fill="#111"/>
+                <path d="M10,70 h20 v20 h-20 z M15,75 h10 v10 h-10 z" fill="#111"/>
+                <rect x="35" y="10" width="5" height="15" fill="#111"/>
+                <rect x="45" y="15" width="10" height="5" fill="#111"/>
+                <rect x="35" y="35" width="30" height="5" fill="#111"/>
+                <rect x="40" y="45" width="20" height="20" fill="#00f0ff"/>
+                <rect x="10" y="40" width="15" height="10" fill="#111"/>
+                <rect x="70" y="45" width="20" height="5" fill="#111"/>
+                <rect x="65" y="65" width="25" height="25" fill="#111"/>
+                <rect x="35" y="75" width="15" height="10" fill="#111"/>
+            </svg>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.88rem; color:#fff; background:rgba(0,0,0,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--border-subtle); display:inline-block; margin-bottom:1rem;">
+            UPI: <span style="color:var(--accent-cyan);">videocleanpro@upi</span>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1.2rem;">
+            Waiting for payment... (<span id="paymentTimer">04:59</span>)
+        </div>
+        <button class="cta-btn" style="width:100%; justify-content:center;" onclick="simulatePaymentSuccess()">
+            ✓ I Have Completed Payment
+        </button>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPTS — Load FFmpeg.wasm first, then app logic
+═══════════════════════════════════════════════════════ -->
+<script src="lib/ffmpeg/ffmpeg.js"></script>
+<script src="lib/util/index.js"></script>
+<script src="processor.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>

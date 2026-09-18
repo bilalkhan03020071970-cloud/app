@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sell Monetized YouTube Channel & Facebook Page - CR-Remover Marketplace</title>
+    <meta name="description" content="Sell your monetized YouTube channel or Facebook page instantly for the best market price. Safe escrow, instant UPI/Bank payment.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- NAV -->
+    <nav>
+        <a href="index.html" class="logo">
+            <div class="logo-icon">⚡</div>
+            <div class="logo-text">CR-<span>Remover</span></div>
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="sellchannel.html" class="active">Sell Account</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+            <li><a href="blogs.html">Creator Blogs</a></li>
+        </ul>
+        <div class="nav-actions">
+            <a href="index.html#home" class="cta-btn">Back to Tool</a>
+        </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <section class="section" style="padding-top: 140px;">
+        <div class="section-header">
+            <div class="badge">Verified Escrow Marketplace</div>
+            <h1 class="section-title">Sell Your <span class="gradient-text">Monetized Channels & Pages</span></h1>
+            <p class="section-subtitle">
+                Get highest market valuation for your YouTube channels, Facebook pages, and Telegram groups. Instant UPI & Bank payout within 2 hours.
+            </p>
+        </div>
+
+        <div class="tool-container" style="max-width: 800px; margin: 0 auto; grid-template-columns: 1fr;">
+            <form onsubmit="handleSellSubmit(event)" style="display: flex; flex-direction: column; gap: 1.2rem;">
+                <div class="form-group">
+                    <label class="form-label">Platform Type</label>
+                    <select class="form-input" required>
+                        <option value="youtube">YouTube Channel (Monetized / Non-Monetized)</option>
+                        <option value="facebook">Facebook Page (Reels Bonus / In-Stream Ads)</option>
+                        <option value="telegram">Telegram Community (10K+ Subscribers)</option>
+                        <option value="instagram">Instagram Theme Page (50K+ Followers)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Channel / Page Link</label>
+                    <input type="url" class="form-input" placeholder="https://youtube.com/@yourchannel" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Subscribers / Followers Count</label>
+                        <input type="number" class="form-input" placeholder="e.g. 25000" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Expected Price (INR / ₹)</label>
+                        <input type="number" class="form-input" placeholder="e.g. 15000" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">WhatsApp or Telegram Contact</label>
+                    <input type="tel" class="form-input" placeholder="+91 / +92 Mobile or @username" required>
+                </div>
+
+                <button type="submit" class="cta-btn" style="width: 100%; justify-content: center; padding: 1.1rem; font-size: 1.05rem;">
+                    🚀 Submit Account For Free Valuation
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-bottom">
+            <div>© 2026 CR-Remover Marketplace. Safe & Verified Deal Escrow.</div>
+            <div><a href="index.html" style="color: var(--accent-cyan); text-decoration: none;">Return to Home</a></div>
+        </div>
+    </footer>
+
+    <div id="toast-container"></div>
+    <script>
+        function handleSellSubmit(e) {
+            e.preventDefault();
+            alert("✅ Account submitted successfully! Our manager will contact you on WhatsApp/Telegram within 2 hours.");
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>
