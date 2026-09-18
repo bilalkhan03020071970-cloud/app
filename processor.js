@@ -53,11 +53,16 @@ class VideoProcessor {
         });
 
         try {
-            const baseURL = `${window.location.origin}/lib/core`;
-            this._emit('log', `Loading FFmpeg WASM core from ${baseURL}...`, 'info');
+            let coreBase = `${window.location.origin}/lib/core`;
+            const check = await fetch(`${coreBase}/ffmpeg-core.js`, { method: 'HEAD' }).catch(() => null);
+            if (!check || !check.ok) {
+                coreBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+            }
 
-            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+            this._emit('log', `Loading FFmpeg WASM core from ${coreBase}...`, 'info');
+
+            const coreURL = await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript');
+            const wasmURL = await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm');
 
             await this.ffmpeg.load({ coreURL, wasmURL });
 

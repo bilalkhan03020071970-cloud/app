@@ -560,6 +560,14 @@
 ═══════════════════════════════════════════════════════ -->
 <script src="lib/ffmpeg/ffmpeg.js"></script>
 <script src="lib/util/index.js"></script>
+<script>
+    if (!window.FFmpegWASM) {
+        document.write('<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"><\/script>');
+    }
+    if (!window.FFmpegUtil) {
+        document.write('<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"><\/script>');
+    }
+</script>
 <script src="processor.js"></script>
 <script src="script.js"></script>
 
