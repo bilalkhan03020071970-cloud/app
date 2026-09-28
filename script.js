@@ -100,9 +100,13 @@ function pickFile(file) {
     selectedFile   = file;
     processedBlob  = null;
 
-    const sizeMB = (file.size / 1048576).toFixed(2);
+    const sizeMB  = (file.size / 1048576).toFixed(2);
+    const sizeGB  = (file.size / 1073741824).toFixed(2);
+    const isLarge = file.size > 500 * 1024 * 1024; // > 500 MB
+    const displaySize = isLarge ? `${sizeGB} GB` : `${sizeMB} MB`;
+
     document.getElementById('chipName').textContent = file.name;
-    document.getElementById('chipSize').textContent = `${sizeMB} MB`;
+    document.getElementById('chipSize').textContent = displaySize;
     document.getElementById('fileInfoRow').style.display = 'flex';
 
     // Show video preview
@@ -123,7 +127,12 @@ function pickFile(file) {
     // Reset process button
     resetProcessBtn();
 
-    showToast(`📹 ${file.name} (${sizeMB} MB) loaded`);
+    if (isLarge) {
+        showToast(`🎬 Movie loaded: ${file.name} (${sizeGB} GB) — Processing may take 30–90 mins`);
+        setTimeout(() => showToast('⚠️ Large movie: Keep browser tab open & active during processing!'), 2000);
+    } else {
+        showToast(`📹 ${file.name} (${sizeMB} MB) loaded`);
+    }
 }
 
 function clearFile() {
@@ -212,7 +221,14 @@ async function startRealProcessing() {
     document.getElementById('logTerminal').style.display = 'block';
 
     processingStartTime = Date.now();
+    const isLargeMovie = selectedFile.size > 500 * 1024 * 1024;
+
     appendLog('▶ Starting real FFmpeg processing...', 'sys');
+    if (isLargeMovie) {
+        const sizeGB = (selectedFile.size / 1073741824).toFixed(2);
+        appendLog(`⚠️ Large movie detected: ${sizeGB} GB — Do NOT close this tab!`, 'sys');
+        appendLog('⏳ Estimated time: 30–90 minutes depending on your CPU...', 'sys');
+    }
 
     try {
         const opts = getOptions();
@@ -233,9 +249,12 @@ async function startRealProcessing() {
         btn.querySelector('#processBtnText').textContent = 'Processing Complete';
         btn.disabled = false;
 
-        const elapsed = ((Date.now() - processingStartTime) / 1000).toFixed(1);
-        appendLog(`✓ Done in ${elapsed}s. Output: ${(result.blob.size / 1048576).toFixed(2)} MB`, 'info');
-        showToast(`✅ Video processed in ${elapsed}s!`);
+        const elapsedSec = (Date.now() - processingStartTime) / 1000;
+        const elapsedStr = elapsedSec > 60
+            ? `${Math.floor(elapsedSec / 60)}m ${Math.round(elapsedSec % 60)}s`
+            : `${elapsedSec.toFixed(1)}s`;
+        appendLog(`✓ Done in ${elapsedStr}. Output: ${(result.blob.size / 1048576).toFixed(2)} MB`, 'info');
+        showToast(`✅ Video processed in ${elapsedStr}!`);
 
     } catch (err) {
         document.getElementById('aiOverlay').classList.add('hidden');
@@ -247,7 +266,8 @@ async function startRealProcessing() {
         btn.querySelector('#processBtnText').textContent = 'Retry Processing';
 
         appendLog(`✗ Error: ${err.message}`, 'error');
-        showToast('❌ Processing failed. Check the terminal log.');
+        appendLog('💡 Tip: For very large movies (>3GB), try reducing CRF or use a different browser.', 'info');
+        showToast('❌ Processing failed. Check the terminal log for details.');
         console.error('[Processing Error]', err);
     }
 }

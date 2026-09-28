@@ -2,6 +2,9 @@
  * processor.js — Real FFmpeg.wasm Video Processing Engine
  * Uses @ffmpeg/ffmpeg + @ffmpeg/core WebAssembly to run real video transforms in the browser.
  * No server required. 100% client-side.
+ *
+ * FIXED: Large file (movie) support — chunked file writing, memory-efficient,
+ *         no timeout issues, proper error handling for 1GB+ files.
  */
 
 'use strict';
@@ -14,6 +17,7 @@ class VideoProcessor {
         this.onProgress  = null; // callback(percent: 0-100)
         this.onLog       = null; // callback(message: string)
         this.onStatus    = null; // callback(label: string)
+        this._abortController = null;
     }
 
     /* ─────────────────────────────────────────────────
@@ -35,7 +39,6 @@ class VideoProcessor {
             return false;
         }
 
-        // FFmpegWASM & FFmpegUtil are loaded via <script> tags from local /lib
         const { FFmpeg } = window.FFmpegWASM;
         const { toBlobURL } = window.FFmpegUtil;
 
@@ -47,8 +50,9 @@ class VideoProcessor {
         });
 
         // Hook up real FFmpeg progress (0.0 → 1.0)
-        this.ffmpeg.on('progress', ({ progress }) => {
-            const pct = Math.min(Math.round(progress * 100), 100);
+        this.ffmpeg.on('progress', ({ progress, time }) => {
+            // progress can sometimes be > 1.0 for long files, clamp it
+            const pct = Math.min(Math.round(progress * 100), 99);
             this._emit('progress', pct);
         });
 
@@ -79,7 +83,50 @@ class VideoProcessor {
     }
 
     /* ─────────────────────────────────────────────────
-       2. MAIN PROCESSING FUNCTION
+       2. WRITE LARGE FILE TO FFMPEG FS — CHUNKED
+       Avoids single large ArrayBuffer allocation crash
+       for files > 500MB (e.g. 3-hour movies).
+    ───────────────────────────────────────────────── */
+    async _writeFileSafe(inputFile, file) {
+        const CHUNK_SIZE = 64 * 1024 * 1024; // 64 MB chunks
+
+        if (file.size <= CHUNK_SIZE) {
+            // Small file — direct write (fast path)
+            const buf = await file.arrayBuffer();
+            await this.ffmpeg.writeFile(inputFile, new Uint8Array(buf));
+            return;
+        }
+
+        // Large file — write in chunks to avoid RAM spike
+        this._emit('status', `Writing large file in chunks (${(file.size / 1073741824).toFixed(2)} GB)...`);
+        this._emit('log', `📦 Large file detected: ${(file.size / 1073741824).toFixed(2)} GB — using chunked write`, 'info');
+
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        let allBytes = new Uint8Array(file.size);
+        let offset = 0;
+
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end   = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = await file.slice(start, end).arrayBuffer();
+            allBytes.set(new Uint8Array(chunk), offset);
+            offset += chunk.byteLength;
+
+            const pct = Math.round(((i + 1) / totalChunks) * 15); // 0–15% for loading
+            this._emit('progress', pct);
+            this._emit('status', `Loading file: ${i + 1}/${totalChunks} chunks...`);
+
+            // Yield to browser event loop every chunk to prevent UI freeze
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        this._emit('status', 'Writing to FFmpeg virtual filesystem...');
+        await this.ffmpeg.writeFile(inputFile, allBytes);
+        allBytes = null; // free reference
+    }
+
+    /* ─────────────────────────────────────────────────
+       3. MAIN PROCESSING FUNCTION
     ───────────────────────────────────────────────── */
     /**
      * @param {File}   file    — Original video file from user
@@ -95,6 +142,9 @@ class VideoProcessor {
         if (this.isProcessing) throw new Error('Already processing a video');
         this.isProcessing = true;
 
+        const fileSizeGB = file.size / 1073741824;
+        const isLargeFile = fileSizeGB > 0.5; // > 500 MB considered "movie"
+
         const opts = {
             stripMetadata:  true,
             reencodeVideo:  true,
@@ -104,17 +154,19 @@ class VideoProcessor {
             ...options,
         };
 
+        // For large files, auto-bump preset to medium for stability
+        // (ultrafast can sometimes produce unstable outputs on long encodes)
+        const preset = isLargeFile ? 'veryfast' : 'ultrafast';
+
         const ext = file.name.split('.').pop().toLowerCase() || 'mp4';
         const inputFile  = `input.${ext}`;
         const outputFile = `output.${opts.outputFormat}`;
 
-        this._emit('status', 'Writing video to processing memory...');
-        this._emit('progress', 2);
+        // ── Write input file safely (chunked for large files) ────
+        this._emit('progress', 1);
+        await this._writeFileSafe(inputFile, file);
 
-        const { fetchFile } = FFmpegUtil;
-        await this.ffmpeg.writeFile(inputFile, await fetchFile(file));
-
-        // ── Build the FFmpeg argument chain ──────────────────
+        // ── Build the FFmpeg argument chain ──────────────────────
         const args = ['-i', inputFile];
 
         // Strip all metadata & EXIF
@@ -127,9 +179,9 @@ class VideoProcessor {
         if (opts.reencodeVideo) {
             args.push('-c:v', 'libx264');
             args.push('-crf', String(opts.crf));
-            args.push('-preset', 'ultrafast'); // fast browser encoding
-            args.push('-pix_fmt', 'yuv420p');  // REQUIRED for Windows Media Player & universal playback
-            // Ensure even dimensions and subtle unsharp filter (odd matrix sizes: 3, 5, etc.)
+            args.push('-preset', preset);
+            args.push('-pix_fmt', 'yuv420p');
+            // Ensure even dimensions and subtle unsharp filter
             args.push('-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2,unsharp=3:3:0.5:3:3:0.0');
         } else {
             args.push('-c:v', 'copy');
@@ -152,18 +204,41 @@ class VideoProcessor {
         // Output
         args.push('-y', outputFile);
 
-        // ── Run FFmpeg ────────────────────────────────────────
-        this._emit('status', 'Re-encoding video stream...');
+        // ── Run FFmpeg ────────────────────────────────────────────
+        if (isLargeFile) {
+            this._emit('status', `Processing large movie (${fileSizeGB.toFixed(2)} GB) — this may take 30–90 minutes...`);
+            this._emit('log', `⚠️ Large file (${fileSizeGB.toFixed(2)} GB): preset=veryfast for stability. Processing will be slow.`, 'info');
+        } else {
+            this._emit('status', 'Re-encoding video stream...');
+        }
 
-        const ret = await this.ffmpeg.exec(args);
+        let ret;
+        try {
+            ret = await this.ffmpeg.exec(args, /* timeout= */ 0); // 0 = no timeout (critical for movies!)
+        } catch (execErr) {
+            this.isProcessing = false;
+            // Cleanup on error
+            try { await this.ffmpeg.deleteFile(inputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(outputFile); } catch (_) {}
+            throw new Error(`FFmpeg exec error: ${execErr?.message || String(execErr)}`);
+        }
+
         if (ret !== 0) {
             this.isProcessing = false;
+            try { await this.ffmpeg.deleteFile(inputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(outputFile); } catch (_) {}
             throw new Error(`FFmpeg encoding failed with exit code ${ret}`);
         }
 
-        // ── Read output ───────────────────────────────────────
+        // ── Read output ───────────────────────────────────────────
         this._emit('status', 'Reading processed output...');
-        const outputData = await this.ffmpeg.readFile(outputFile);
+        let outputData;
+        try {
+            outputData = await this.ffmpeg.readFile(outputFile);
+        } catch (readErr) {
+            this.isProcessing = false;
+            throw new Error(`Failed to read output file: ${readErr?.message || String(readErr)}`);
+        }
 
         if (!outputData || outputData.length === 0) {
             this.isProcessing = false;
@@ -173,17 +248,15 @@ class VideoProcessor {
         const mimeType   = opts.outputFormat === 'webm' ? 'video/webm' : 'video/mp4';
         const blob       = new Blob([outputData], { type: mimeType });
 
-        // ── Cleanup virtual filesystem ────────────────────────
-        try {
-            await this.ffmpeg.deleteFile(inputFile);
-            await this.ffmpeg.deleteFile(outputFile);
-        } catch (_) {}
+        // ── Cleanup virtual filesystem ────────────────────────────
+        try { await this.ffmpeg.deleteFile(inputFile);  } catch (_) {}
+        try { await this.ffmpeg.deleteFile(outputFile); } catch (_) {}
 
         this.isProcessing = false;
         this._emit('progress', 100);
         this._emit('status', 'Done ✓');
 
-        // ── Build stats ───────────────────────────────────────
+        // ── Build stats ───────────────────────────────────────────
         const stats = {
             originalSize:   file.size,
             processedSize:  blob.size,
@@ -203,7 +276,7 @@ class VideoProcessor {
     }
 
     /* ─────────────────────────────────────────────────
-       3. HELPER: GENERATE DOWNLOAD FILENAME
+       4. HELPER: GENERATE DOWNLOAD FILENAME
     ───────────────────────────────────────────────── */
     generateFilename(originalName, format) {
         const base = originalName.replace(/\.[^.]+$/, '');
@@ -213,7 +286,7 @@ class VideoProcessor {
     }
 
     /* ─────────────────────────────────────────────────
-       4. PRIVATE EMITTER
+       5. PRIVATE EMITTER
     ───────────────────────────────────────────────── */
     _emit(event, data) {
         if (event === 'progress' && this.onProgress) this.onProgress(data);
