@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="coi-serviceworker.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>CR-Remover - Bypass YouTube and Facebook Copyright Remover Instantly</title>
@@ -25,6 +26,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:ce
 .hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
 .hamburger.open span:nth-child(2){opacity:0}
 .hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+
 .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 5% 60px;text-align:center;position:relative}
 .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 40%,rgba(0,229,255,.05) 0%,transparent 70%);pointer-events:none}
 .hero-content{max-width:920px;width:100%}
@@ -32,43 +34,65 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:ce
 .hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:900;line-height:1.15;margin-bottom:1.2rem;letter-spacing:-1px}
 .gt{background:linear-gradient(135deg,#00e5ff,#8338ec);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hero-sub{font-size:clamp(1rem,2vw,1.15rem);color:#aaa;max-width:640px;margin:0 auto 2.5rem}
-.tool-box{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;max-width:820px;margin:0 auto;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:1.5rem}
-.drop-area{border:2px dashed rgba(0,229,255,.25);border-radius:14px;padding:2.5rem 1.5rem;cursor:pointer;text-align:center;transition:.3s;background:rgba(0,229,255,.02);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;min-height:160px}
+
+.tool-box{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;max-width:880px;margin:0 auto;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:1.5rem}
+.upload-card{display:flex;flex-direction:column;gap:.75rem}
+.drop-area{border:2px dashed rgba(0,229,255,.25);border-radius:14px;padding:2rem 1.5rem;cursor:pointer;text-align:center;transition:.3s;background:rgba(0,229,255,.02);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;min-height:160px}
 .drop-area:hover,.drop-area.drag-over{border-color:#00e5ff;background:rgba(0,229,255,.05);box-shadow:0 0 20px rgba(0,229,255,.1)}
-.drop-icon{font-size:2.5rem;margin-bottom:.5rem}
+.drop-icon{font-size:2.5rem;margin-bottom:.3rem}
 .drop-area p{color:#aaa;font-size:.95rem}
 .drop-area p span{color:#00e5ff;font-weight:600}
-.file-nm{margin-top:.75rem;font-size:.85rem;color:#aaa;text-align:center}
-.btn-process{display:block;width:100%;margin-top:1rem;padding:.9rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#00e5ff,#8338ec);color:#000;font-family:Outfit,sans-serif;transition:.3s}
+
+.selected-card{display:none;background:rgba(0,0,0,.6);border:1px solid rgba(0,229,255,.2);border-radius:14px;overflow:hidden;padding:1rem}
+.thumb-container{position:relative;width:100%;height:160px;border-radius:10px;overflow:hidden;background:#050505;display:flex;align-items:center;justify-content:center}
+.thumb-img{width:100%;height:100%;object-fit:cover}
+.thumb-dur{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.85);color:#00e5ff;font-size:.75rem;font-weight:700;padding:.2rem .5rem;border-radius:4px}
+.sel-meta{margin-top:.75rem;text-align:left}
+.sel-title{font-weight:700;font-size:.9rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sel-tags{display:flex;gap:.5rem;margin-top:.3rem;flex-wrap:wrap}
+.sel-tag{font-size:.75rem;background:rgba(255,255,255,.06);padding:.15rem .5rem;border-radius:4px;color:#aaa}
+.sel-change{font-size:.8rem;color:#00e5ff;cursor:pointer;margin-top:.5rem;display:inline-block;text-decoration:underline}
+
+.btn-process{display:block;width:100%;padding:.9rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#00e5ff,#8338ec);color:#000;font-family:Outfit,sans-serif;transition:.3s}
 .btn-process:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,229,255,.35)}
 .btn-process:disabled{opacity:.5;cursor:not-allowed}
-.result-box{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.4);overflow:hidden}
-#vp{width:100%;object-fit:contain;display:none}
-.empty-r{text-align:center;padding:2rem;display:flex;flex-direction:column;align-items:center;gap:.75rem}
+
+.result-box{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.4);overflow:hidden;padding:1rem;position:relative}
+#vp{width:100%;max-height:260px;object-fit:contain;border-radius:10px;display:none;background:#000}
+.empty-r{text-align:center;padding:2rem 1rem;display:flex;flex-direction:column;align-items:center;gap:.75rem}
 .empty-r .ic{font-size:3rem;opacity:.25}
 .empty-r p{color:#555;font-size:.9rem}
+
 #loader{display:none;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;padding:1.5rem;width:100%}
-.spin{width:50px;height:50px;border-radius:50%;border:3px solid rgba(0,229,255,.15);border-top-color:#00e5ff;animation:sp 1s linear infinite}
+.spin-wrap{position:relative;width:60px;height:60px;display:flex;align-items:center;justify-content:center}
+.spin{width:60px;height:60px;border-radius:50%;border:3px solid rgba(0,229,255,.15);border-top-color:#00e5ff;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-#mst{font-size:1rem;font-weight:700;color:#fff}
-#stt{font-size:.8rem;color:#aaa}
-.pw{width:100%;background:rgba(255,255,255,.08);border-radius:999px;height:6px;overflow:hidden;margin:.3rem 0}
-#pb{height:100%;width:0%;border-radius:999px;transition:width .3s;background:linear-gradient(90deg,#00e5ff,#8338ec)}
-#pt{font-size:.85rem;color:#00e5ff;font-weight:700}
-#dl-area{display:none;flex-direction:column;align-items:center;gap:1rem;padding:1.5rem;width:100%}
-.dl-btn{display:block;width:100%;padding:.85rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#2ed573,#00e5ff);color:#000;font-family:Outfit,sans-serif;text-align:center;transition:.3s}
+.spin-icon{position:absolute;font-size:1.2rem}
+#mst{font-size:1.05rem;font-weight:700;color:#fff}
+#stt{font-size:.82rem;color:#00e5ff;text-align:center}
+.pw{width:100%;background:rgba(255,255,255,.08);border-radius:999px;height:8px;overflow:hidden;margin:.5rem 0}
+#pb{height:100%;width:0%;border-radius:999px;transition:width .25s ease-out;background:linear-gradient(90deg,#00e5ff,#8338ec,#2ed573)}
+.pt-box{display:flex;justify-content:space-between;width:100%;font-size:.85rem}
+#pt{font-size:1.1rem;color:#00e5ff;font-weight:800}
+.pt-lbl{color:#aaa;font-size:.8rem}
+
+#dl-area{display:none;flex-direction:column;align-items:center;gap:.75rem;padding:1rem 0;width:100%}
+.dl-btn{display:block;width:100%;padding:.9rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#2ed573,#00e5ff);color:#000;font-family:Outfit,sans-serif;text-align:center;transition:.3s}
 .dl-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(46,213,115,.35)}
-.dl-hint{font-size:.8rem;color:#555}
-.log-box{max-width:820px;margin:1.25rem auto 0;background:#050505;border:1px solid rgba(0,229,255,.12);border-radius:12px;overflow:hidden;display:none}
-.log-hd{padding:.5rem 1rem;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,.05);font-size:.75rem;color:#555;font-family:monospace;display:flex;align-items:center;gap:.4rem}
+.dl-hint{font-size:.8rem;color:#2ed573}
+
+.log-box{max-width:880px;margin:1.25rem auto 0;background:#050505;border:1px solid rgba(0,229,255,.15);border-radius:12px;overflow:hidden;display:none}
+.log-hd{padding:.5rem 1rem;background:#0a0a0a;border-bottom:1px solid rgba(255,255,255,.05);font-size:.75rem;color:#aaa;font-family:monospace;display:flex;align-items:center;gap:.4rem}
 .ld{width:10px;height:10px;border-radius:50%}
-.log-out{padding:.75rem 1rem;max-height:150px;overflow-y:auto;font-family:monospace;font-size:.78rem;line-height:1.8}
-.ll{color:#aaa}.ll.s{color:#00e5ff}.ll.e{color:#ff4757}.ll.i{color:#2ed573}
-.sp-box{max-width:820px;margin:1.25rem auto 0;display:none;background:#111;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem}
+.log-out{padding:.75rem 1rem;max-height:160px;overflow-y:auto;font-family:monospace;font-size:.78rem;line-height:1.8;text-align:left}
+.ll{color:#888}.ll.s{color:#00e5ff}.ll.e{color:#ff4757}.ll.i{color:#2ed573}
+
+.sp-box{max-width:880px;margin:1.25rem auto 0;display:none;background:#111;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem}
 .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
-.sb{text-align:center}.sv{font-size:1.5rem;font-weight:800;color:#00e5ff}.sl{font-size:.75rem;color:#555;margin-top:.2rem}
-.tr{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem}
+.sb{text-align:center}.sv{font-size:1.4rem;font-weight:800;color:#00e5ff}.sl{font-size:.75rem;color:#aaa;margin-top:.2rem}
+.tr{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem;justify-content:center}
 .tc{padding:.2rem .6rem;border-radius:999px;font-size:.75rem;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);color:#00e5ff}
+
 .sec{padding:5rem 5%}
 .sec-t{text-align:center;font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;margin-bottom:.75rem}
 .sec-s{text-align:center;color:#aaa;font-size:1rem;margin-bottom:3rem}
@@ -79,6 +103,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:ce
 .sci{font-size:2.5rem;margin-bottom:1rem}
 .sc h3{font-size:1.1rem;font-weight:700;margin-bottom:.75rem;color:#00e5ff}
 .sc p{color:#aaa;font-size:.9rem;line-height:1.6}
+
 .pricing-sec{background:#080808;border-top:1px solid rgba(255,255,255,.05)}
 .pg{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;max-width:1100px;margin:0 auto}
 .pc{background:#111;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:2rem 1.5rem;display:flex;flex-direction:column;gap:.5rem;position:relative;transition:.3s}
@@ -93,29 +118,32 @@ nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:ce
 .pbtn{display:block;width:100%;padding:.75rem;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;border:1px solid rgba(0,229,255,.3);background:transparent;color:#00e5ff;font-family:Outfit,sans-serif;transition:.3s}
 .pc.feat .pbtn{background:linear-gradient(135deg,#00e5ff,#8338ec);color:#000;border:none}
 .pbtn:hover{background:rgba(0,229,255,.1)}
+
 .faq-sec{background:#050505;border-top:1px solid rgba(255,255,255,.05)}
 .faq-inner{max-width:800px;margin:0 auto}
 .fsrch{max-width:600px;margin:0 auto 2.5rem;display:block;width:100%;padding:.85rem 1.25rem;border-radius:10px;background:#111;border:1px solid rgba(255,255,255,.08);color:#fff;font-size:.95rem;font-family:Outfit,sans-serif;outline:none}
 .fsrch:focus{border-color:rgba(0,229,255,.3)}
 .fsrch::placeholder{color:#444}
-.fct{font-size:1.1rem;font-weight:700;color:#00e5ff;margin:1.5rem 0 .75rem}
+.fct{font-size:1.1rem;font-weight:700;color:#00e5ff;margin:1.5rem 0 .75rem;text-align:left}
 .fi{border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;margin-bottom:.5rem;transition:.2s}
 .fi:hover{border-color:rgba(0,229,255,.15)}
-.fq{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.25rem;cursor:pointer;font-weight:500;font-size:.95rem;color:#fff}
+.fq{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.25rem;cursor:pointer;font-weight:500;font-size:.95rem;color:#fff;text-align:left}
 .fq .ch{color:#444;flex-shrink:0;transition:.3s;font-size:.75rem}
 .fi.act .ch{transform:rotate(180deg);color:#00e5ff}
-.fan{max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s ease;padding:0 1.25rem;color:#aaa;font-size:.9rem;line-height:1.7}
+.fan{max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s ease;padding:0 1.25rem;color:#aaa;font-size:.9rem;line-height:1.7;text-align:left}
 .fi.act .fan{max-height:200px;padding:.25rem 1.25rem 1rem}
+
 footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3rem 5% 1.5rem}
-.fg{display:grid;grid-template-columns:2fr 1fr 1fr;gap:2.5rem;max-width:1100px;margin:0 auto 2rem}
+.fg{display:grid;grid-template-columns:2fr 1fr 1fr;gap:2.5rem;max-width:1100px;margin:0 auto 2rem;text-align:left}
 .fb h2{color:#00e5ff;font-size:1.4rem;font-weight:800;margin-bottom:.75rem}
 .fb p{color:#555;font-size:.9rem;line-height:1.7}
 .fc h4{color:#fff;font-size:1rem;font-weight:700;margin-bottom:.75rem}
 .fc li{margin-bottom:.4rem}
 .fc a{color:#555;font-size:.9rem;transition:.2s}
 .fc a:hover{color:#00e5ff}
-.fdis{max-width:1100px;margin:0 auto 1.5rem;background:#0a0a0a;padding:1rem 1.25rem;border-left:3px solid #ff4757;border-radius:6px;font-size:.85rem;color:#555}
+.fdis{max-width:1100px;margin:0 auto 1.5rem;background:#0a0a0a;padding:1rem 1.25rem;border-left:3px solid #ff4757;border-radius:6px;font-size:.85rem;color:#555;text-align:left}
 .fbot{text-align:center;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.05);color:#444;font-size:.85rem}
+
 .yt-ov{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px}
 .yt-ov.show{display:flex}
 .yt-b{position:relative;width:100%;max-width:420px;padding:38px 30px 30px;text-align:center;background:linear-gradient(145deg,#151515,#080808);border:1px solid rgba(255,255,255,.1);border-radius:22px;box-shadow:0 20px 70px rgba(0,0,0,.7),0 0 35px rgba(255,0,0,.12);animation:pi .35s ease}
@@ -129,9 +157,10 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 .yt-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:15px;background:red;color:#fff;border-radius:12px;font-size:16px;font-weight:700;transition:.25s;box-shadow:0 8px 25px rgba(255,0,0,.25)}
 .yt-btn:hover{transform:translateY(-2px)}
 .yt-note{margin-top:14px;font-size:12px;color:#444}
+
 .mo{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px}
 .mo.act{display:flex}
-.mb{background:#111;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:2rem;width:100%;max-width:420px;animation:pi .3s ease}
+.mb{background:#111;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:2rem;width:100%;max-width:420px;animation:pi .3s ease;text-align:left}
 .mb h2{font-size:1.4rem;font-weight:800;margin-bottom:1.25rem}
 .fg2{margin-bottom:1rem}
 .fg2 label{display:block;font-size:.85rem;color:#aaa;margin-bottom:.4rem}
@@ -144,9 +173,11 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 .upi{display:inline-block;padding:.5rem 1.25rem;background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.3);border-radius:8px;color:#00e5ff;font-size:1.1rem;font-weight:700;cursor:pointer}
 .timer{text-align:center;font-size:1.5rem;font-weight:800;color:#ff4757;margin:.75rem 0}
 .btn-s{display:block;width:100%;padding:.85rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#2ed573,#00d2ff);color:#000;font-family:Outfit,sans-serif;margin-top:.5rem}
+
 #tw{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem}
 .ts{padding:.75rem 1.25rem;border-radius:10px;background:rgba(17,17,17,.95);border:1px solid rgba(255,255,255,.08);color:#fff;font-size:.9rem;backdrop-filter:blur(12px);animation:tai .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @keyframes tai{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
 @media(max-width:768px){
 .nav-links{display:none;flex-direction:column;position:fixed;top:66px;left:0;right:0;bottom:0;background:rgba(0,0,0,.97);padding:2rem;gap:1.5rem}
 .nav-links.open{display:flex}
@@ -155,7 +186,8 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 .s3g{grid-template-columns:1fr}
 .pg{grid-template-columns:1fr 1fr}
 .fg{grid-template-columns:1fr}
-.sg{grid-template-columns:1fr 1fr}}
+.sg{grid-template-columns:1fr 1fr}
+}
 @media(max-width:480px){.pg{grid-template-columns:1fr}}
 </style>
 </head>
@@ -180,42 +212,75 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 <div class="badge">&#129514; AI DNA Scrubbing Technology</div>
 <h1><span class="gt">CR-Remover Copyright Remover</span><br>Algorithms Instantly</h1>
 <p class="hero-sub">Professional AI deep-clean technology. Upload your video below to bypass YouTube and Facebook Content ID scanners completely.</p>
+
 <div class="tool-box">
-<div>
+<div class="upload-card">
 <div class="drop-area" id="dropArea">
 <div class="drop-icon">&#128228;</div>
 <p>Drag video or <span>Browse</span></p>
 <input type="file" id="fi" accept="video/*" hidden>
 </div>
-<p class="file-nm" id="fnm">No file selected</p>
+
+<div class="selected-card" id="selCard">
+<div class="thumb-container" id="thumbContainer">
+<img class="thumb-img" id="thumbImg" src="" alt="Video thumbnail">
+<span class="thumb-dur" id="thumbDur">00:00</span>
+</div>
+<div class="sel-meta">
+<div class="sel-title" id="selTitle">Video loaded</div>
+<div class="sel-tags">
+<span class="sel-tag" id="selSize">0 MB</span>
+<span class="sel-tag" id="selRes">HD</span>
+<span class="sel-tag" style="color:#00e5ff;border:1px solid rgba(0,229,255,.3)">Ready for AI Clean</span>
+</div>
+<span class="sel-change" onclick="document.getElementById('fi').click()">&#8635; Change Video</span>
+</div>
+</div>
+
 <button class="btn-process" id="pb2" onclick="startP()">Remove Copyright</button>
 </div>
+
 <div class="result-box">
 <div class="empty-r" id="er"><div class="ic">&#127916;</div><p>Processed video appears here</p></div>
-<video id="vp" controls></video>
+<video id="vp" controls playsinline></video>
+
 <div id="loader">
+<div class="spin-wrap">
 <div class="spin"></div>
-<p id="mst">Processing Video...</p>
+<span class="spin-icon">&#9889;</span>
+</div>
+<p id="mst">Scrubbing Video DNA...</p>
 <span id="stt">Initializing AI Engine...</span>
 <div class="pw"><div id="pb"></div></div>
-<p id="pt">0%</p>
+<div class="pt-box">
+<span class="pt-lbl">Progress</span>
+<span id="pt">0%</span>
 </div>
+</div>
+
 <div id="dl-area">
-<a class="dl-btn" id="dlb" href="#">&#11015; Download Optimized Video</a>
-<p class="dl-hint">&#10003; Copyright signature removed &#8226; Metadata cleaned</p>
+<a class="dl-btn" id="dlb" href="#">&#11015; Download Cleaned Video</a>
+<p class="dl-hint">&#10003; 100% Content ID Bypass &#8226; Metadata Cleaned</p>
 </div>
 </div>
 </div>
+
 <div class="log-box" id="lt">
-<div class="log-hd"><div class="ld" style="background:#ff5f57"></div><div class="ld" style="background:#febc2e"></div><div class="ld" style="background:#28c840"></div><span style="margin-left:.5rem">FFmpeg Engine Console</span></div>
+<div class="log-hd">
+<div class="ld" style="background:#ff5f57"></div>
+<div class="ld" style="background:#febc2e"></div>
+<div class="ld" style="background:#28c840"></div>
+<span style="margin-left:.5rem">AI Engine Real-Time Log</span>
+</div>
 <div class="log-out" id="lo"></div>
 </div>
+
 <div class="sp-box" id="spb">
 <div class="sg">
 <div class="sb"><div class="sv" id="s1">-</div><div class="sl">Original Size</div></div>
-<div class="sb"><div class="sv" id="s2">-</div><div class="sl">New Size</div></div>
-<div class="sb"><div class="sv" id="s3">-</div><div class="sl">Reduction</div></div>
-<div class="sb"><div class="sv" id="s4">-</div><div class="sl">Tags Removed</div></div>
+<div class="sb"><div class="sv" id="s2">-</div><div class="sl">Cleaned Size</div></div>
+<div class="sb"><div class="sv" id="s3">-</div><div class="sl">Compression</div></div>
+<div class="sb"><div class="sv" id="s4">14</div><div class="sl">Tags Scrubbed</div></div>
 </div>
 <div class="tr" id="tr"></div>
 </div>
@@ -298,44 +363,59 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 <div class="fi"><div class="fq"><span>YouTube copyright claim kaise hataye bina video delete kiye?</span><span class="ch">&#9660;</span></div><div class="fan"><p>Our Binary DNA Scrubbing modifies the underlying code of your video. This triggers the algorithm to drop existing claims without needing a video re-upload.</p></div></div>
 <div class="fi"><div class="fq"><span>Instagram reel mute ho gayi hai solution?</span><span class="ch">&#9660;</span></div><div class="fan"><p>Our tool shifts the audio frequency slightly, bypasses the Mute trigger while keeping audio quality perfect.</p></div></div>
 <div class="fi"><div class="fq"><span>How to bypass YouTube Content ID 4.0?</span><span class="ch">&#9660;</span></div><div class="fan"><p>CR-Remover video ke underlying binary code aur DNA ko modify karta hai. Ye method Content ID 4.0 ke scanners ko bypass karne mein 99% tak effective hai.</p></div></div>
-<p class="fct">3. Safety, Strikes &amp; MCN</p>
-<div class="fi"><div class="fq"><span>Strike aane par channel monetize hoga ya nahi?</span><span class="ch">&#9660;</span></div><div class="fan"><p>A strike does not immediately kill monetization, but it puts you in the danger zone. Our tool helps Clean future uploads to prevent further strikes.</p></div></div>
-<div class="fi"><div class="fq"><span>T-Series strike se bachne ka naya tarika?</span><span class="ch">&#9660;</span></div><div class="fan"><p>Our Enterprise Plan offers the highest level of encryption specifically designed to bypass major music label scanners like T-Series.</p></div></div>
-<div class="fi"><div class="fq"><span>MCN join karne ke baad strike aayegi kya?</span><span class="ch">&#9660;</span></div><div class="fan"><p>MCN provides a shield, but not total immunity. Using CR-Remover alongside an MCN is the safest way to scale your content empire.</p></div></div>
 </div>
 </section>
 
 <footer>
 <div class="fg">
-<div class="fb"><h2>CR-Remover</h2><p>Best Copyright remover tool. AI DNA Scrubbing technology to bypass YouTube Content ID and Facebook Rights Manager in 2026.</p></div>
-<div class="fc"><h4>Solutions</h4><ul><li><a href="#home">Video Optimization</a></li><li><a href="#pricing">Pricing Plans</a></li><li><a href="#works">How It Works</a></li><li><a href="sellchannel.html">Sell Account</a></li></ul></div>
-<div class="fc"><h4>Policy &amp; Support</h4><ul><li><a href="legal/privacy.html">Privacy Policy</a></li><li><a href="legal/terms.html">Terms of Service</a></li><li><a href="https://t.me/crremover" target="_blank" style="color:#00e5ff">Telegram Support</a></li></ul></div>
+<div class="fb">
+<h2>CR-Remover</h2>
+<p>Industry standard copyright removal and video processing platform. Bypass YouTube, Facebook and Instagram Content ID scanners seamlessly.</p>
 </div>
-<div class="fdis"><strong>Disclaimer:</strong> CR-Remover is an optimization tool designed for educational purposes and creators practicing Fair Use. We do not promote illegal copyright infringement.</div>
-<div class="fbot">2026 CR-Remover AI Content ID Protection. All rights reserved.</div>
+<div class="fc">
+<h4>Quick Links</h4>
+<ul>
+<li><a href="#home">Home</a></li>
+<li><a href="#works">How It Works</a></li>
+<li><a href="#pricing">Pricing</a></li>
+<li><a href="sellchannel.html">Sell Channel</a></li>
+</ul>
+</div>
+<div class="fc">
+<h4>Legal &amp; Policy</h4>
+<ul>
+<li><a href="legal/terms.html">Terms of Service</a></li>
+<li><a href="legal/privacy.html">Privacy Policy</a></li>
+<li><a href="legal/disclaimer.html">Disclaimer</a></li>
+<li><a href="legal/refund.html">Refund Policy</a></li>
+</ul>
+</div>
+</div>
+<div class="fdis"><strong>Disclaimer:</strong> CR-Remover is designed for content creators, fair use re-purposing, and educational use. We encourage respecting original content creator rights.</div>
+<div class="fbot">&copy; 2026 CR-Remover. All Rights Reserved.</div>
 </footer>
 
 <div class="yt-ov" id="ytOv">
 <div class="yt-b">
 <button class="yt-cl" onclick="closeYT()">&#10005;</button>
 <div class="yt-ic">&#9654;</div>
-<h2>Get Your Free Trial</h2>
-<p>To get <strong>Free Trial Access</strong>, join our official YouTube channel first.</p>
-<a href="https://www.youtube.com/shorts/OUgbGqbtsFU" target="_blank" class="yt-btn">&#9654; Join YouTube Channel</a>
-<div class="yt-note">Join the channel to continue with your free trial.</div>
+<h2>Join Telegram For Free Access</h2>
+<p>Get instant access to <strong>CR-Remover Free Trial</strong>. Join our official community now.</p>
+<a class="yt-btn" href="https://t.me/crremover" target="_blank">&#9654; Join Telegram Channel</a>
+<div class="yt-note">Opens in Telegram App / Web</div>
 </div>
 </div>
 
 <div class="mo" id="authMo">
 <div class="mb">
-<h2 id="at">Create Account</h2>
-<form onsubmit="handleAuth(event)">
-<div class="fg2"><label>Mobile Number (10 digits)</label><input type="tel" id="am" placeholder="9876543210" maxlength="10" required></div>
-<div class="fg2"><label>Password</label><input type="password" id="ap" placeholder="Password" required></div>
-<div class="fg2" id="cg"><label>Confirm Password</label><input type="password" id="ac" placeholder="Confirm Password"></div>
-<button class="btn-m" type="submit" id="as">Register</button>
+<h2 id="at">Login to Account</h2>
+<form id="authF" onsubmit="handleAuth(event)">
+<div class="fg2"><label>Mobile Number</label><input type="tel" id="am" placeholder="10-digit mobile" required maxlength="10"></div>
+<div class="fg2"><label>Password</label><input type="password" id="ap" placeholder="Your password" required></div>
+<div class="fg2" id="cg" style="display:none"><label>Confirm Password</label><input type="password" id="ac" placeholder="Confirm password"></div>
+<button type="submit" class="btn-m" id="as">Login</button>
 </form>
-<div class="mt" id="atg" onclick="toggleAuth()">Already have account? <span>Login here.</span></div>
+<div class="mt" id="atg" onclick="toggleAuth()">Need account? <span>Register.</span></div>
 <div class="mt" onclick="closeAuth()">&#10005; Close</div>
 </div>
 </div>
@@ -357,138 +437,358 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
 <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 <script src="processor.js"></script>
+
 <script>
-var sF=null,pB=null,li=false,hp=false,cp='',il=false,pt=null;
-// Register Service Worker (enables SharedArrayBuffer on GitHub Pages)
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js').then(function(reg){
-    if(!navigator.serviceWorker.controller){
-      window.location.reload();
+var sF=null,pB=null,li=false,hp=false,cp='',il=false,pt=null,loadedVideoMeta=null;
+
+function initApp(){
+  // Setup callbacks
+  if(window.videoProcessor){
+    videoProcessor.onProgress = function(p){
+      var pb = document.getElementById('pb');
+      var ptEl = document.getElementById('pt');
+      if(pb) pb.style.width = p + '%';
+      if(ptEl) ptEl.textContent = p + '%';
+    };
+    videoProcessor.onLog = function(m,t){ aLog(m,t); };
+    videoProcessor.onStatus = function(m){
+      var stt = document.getElementById('stt');
+      if(stt) stt.textContent = m;
+    };
+    // Pre-load engine in background
+    setTimeout(function(){ videoProcessor.load(); }, 1000);
+  }
+
+  var h=document.getElementById('hb'),nl=document.getElementById('nl');
+  if(h && nl){
+    h.addEventListener('click',function(){h.classList.toggle('open');nl.classList.toggle('open');});
+    nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){h.classList.remove('open');nl.classList.remove('open');});});
+  }
+
+  var da=document.getElementById('dropArea'),fi=document.getElementById('fi');
+  if(da && fi){
+    da.addEventListener('click',function(){fi.click();});
+    fi.addEventListener('change',function(){if(fi.files[0])pickF(fi.files[0]);});
+    ['dragenter','dragover'].forEach(function(ev){da.addEventListener(ev,function(e){e.preventDefault();da.classList.add('drag-over');});});
+    ['dragleave','drop'].forEach(function(ev){da.addEventListener(ev,function(e){e.preventDefault();da.classList.remove('drag-over');});});
+    da.addEventListener('drop',function(e){
+      e.preventDefault();
+      da.classList.remove('drag-over');
+      if(e.dataTransfer && e.dataTransfer.files[0]) pickF(e.dataTransfer.files[0]);
+    });
+  }
+
+  document.querySelectorAll('.fq').forEach(function(q){
+    q.addEventListener('click',function(){
+      var it=q.parentElement,was=it.classList.contains('act');
+      document.querySelectorAll('.fi').forEach(function(i){i.classList.remove('act');});
+      if(!was)it.classList.add('act');
+    });
+  });
+
+  var fsrch = document.getElementById('fsrch');
+  if(fsrch){
+    fsrch.addEventListener('input',function(){
+      var q=this.value.toLowerCase();
+      document.querySelectorAll('.fi').forEach(function(it){
+        it.style.display=(!q||it.textContent.toLowerCase().includes(q))?'':'none';
+      });
+    });
+  }
+
+  restSess();
+  setTimeout(function(){
+    if(!sessionStorage.getItem('yt_s')){
+      openYT();
+      sessionStorage.setItem('yt_s','1');
     }
-  }).catch(function(e){console.warn('SW reg failed:',e);});
+  }, 1500);
 }
-document.addEventListener('DOMContentLoaded',function(){
-// Setup callbacks immediately after processor.js loads
-videoProcessor.onProgress=function(p){document.getElementById('pb').style.width=p+'%';document.getElementById('pt').textContent=p+'%';};
-videoProcessor.onLog=function(m,t){aLog(m,t);};
-videoProcessor.onStatus=function(m){document.getElementById('stt').textContent=m;};
-var h=document.getElementById('hb'),nl=document.getElementById('nl');
-h.addEventListener('click',function(){h.classList.toggle('open');nl.classList.toggle('open');});
-nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){h.classList.remove('open');nl.classList.remove('open');});});
-var da=document.getElementById('dropArea'),fi=document.getElementById('fi');
-da.addEventListener('click',function(){fi.click();});
-fi.addEventListener('change',function(){if(fi.files[0])pickF(fi.files[0]);});
-['dragenter','dragover'].forEach(function(ev){da.addEventListener(ev,function(e){e.preventDefault();da.classList.add('drag-over');});});
-['dragleave','drop'].forEach(function(ev){da.addEventListener(ev,function(e){e.preventDefault();da.classList.remove('drag-over');});});
-da.addEventListener('drop',function(e){if(e.dataTransfer.files[0])pickF(e.dataTransfer.files[0]);});
-document.querySelectorAll('.fq').forEach(function(q){q.addEventListener('click',function(){var it=q.parentElement,was=it.classList.contains('act');document.querySelectorAll('.fi').forEach(function(i){i.classList.remove('act');});if(!was)it.classList.add('act');});});
-document.getElementById('fsrch').addEventListener('input',function(){var q=this.value.toLowerCase();document.querySelectorAll('.fi').forEach(function(it){it.style.display=(!q||it.textContent.toLowerCase().includes(q))?'':'none';});});
-restSess();
-setTimeout(function(){if(!sessionStorage.getItem('yt_s')){openYT();sessionStorage.setItem('yt_s','1');}},1500);
-});
-function pickF(f){
-if(!f.type.startsWith('video/')){toast('Please select a valid video file.');return;}
-sF=f;pB=null;
-var mb=(f.size/1048576).toFixed(2),gb=(f.size/1073741824).toFixed(2),big=f.size>500*1024*1024;
-document.getElementById('fnm').textContent=f.name+' ('+(big?gb+' GB':mb+' MB')+')';
-// Show video thumbnail preview in result box
-var vp=document.getElementById('vp');
-var prevUrl=URL.createObjectURL(f);
-vp.src=prevUrl;
-vp.muted=true;
-vp.style.display='block';
-vp.onloadeddata=function(){vp.currentTime=1;};
-document.getElementById('er').style.display='none';
-document.getElementById('dl-area').style.display='none';
-document.getElementById('spb').style.display='none';
-document.getElementById('lt').style.display='none';
-if(big){toast('Large movie loaded - processing may take 30-90 mins');setTimeout(function(){toast('Keep browser tab open!');},2000);}
-else toast(f.name+' loaded - '+mb+' MB');
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }
+
+function formatDuration(sec){
+  if(!sec || isNaN(sec)) return '00:00';
+  var m = Math.floor(sec / 60);
+  var s = Math.floor(sec % 60);
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+async function pickF(f){
+  if(!f.type.startsWith('video/') && !f.name.match(/\.(mp4|mov|avi|mkv|webm|flv|wmv)$/i)){
+    toast('Please select a valid video file.');
+    return;
+  }
+  sF = f;
+  pB = null;
+
+  var mb = (f.size/1048576).toFixed(2);
+  var gb = (f.size/1073741824).toFixed(2);
+  var isBig = f.size > 500*1024*1024;
+
+  // Show Selected Card
+  document.getElementById('dropArea').style.display = 'none';
+  var selCard = document.getElementById('selCard');
+  selCard.style.display = 'block';
+
+  document.getElementById('selTitle').textContent = f.name;
+  document.getElementById('selSize').textContent = isBig ? (gb + ' GB') : (mb + ' MB');
+
+  // Reset results
+  document.getElementById('er').style.display = 'flex';
+  document.getElementById('vp').style.display = 'none';
+  document.getElementById('dl-area').style.display = 'none';
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('spb').style.display = 'none';
+  document.getElementById('pb2').disabled = false;
+  document.getElementById('pb2').textContent = 'Remove Copyright';
+
+  // Generate thumbnail & metadata
+  try {
+    var v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    v.playsInline = true;
+    var url = URL.createObjectURL(f);
+    v.src = url;
+
+    v.onloadedmetadata = function(){
+      var dur = v.duration;
+      var w = v.videoWidth || 1920;
+      var h = v.videoHeight || 1080;
+      loadedVideoMeta = { duration: dur, width: w, height: h };
+      if(window.videoProcessor) videoProcessor.setDuration(dur);
+
+      document.getElementById('thumbDur').textContent = formatDuration(dur);
+      document.getElementById('selRes').textContent = (w && h) ? (w + 'x' + h) : 'HD Video';
+      v.currentTime = Math.min(1, Math.max(0.1, dur / 4));
+    };
+
+    v.onseeked = function(){
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = v.videoWidth || 480;
+        canvas.height = v.videoHeight || 270;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        var thumbData = canvas.toDataURL('image/jpeg', 0.8);
+        document.getElementById('thumbImg').src = thumbData;
+      } catch(e){}
+    };
+  } catch(e){
+    console.warn('Thumbnail err:', e);
+  }
+
+  if(isBig){
+    toast('Large movie loaded ('+gb+' GB) - Keep tab active!');
+  } else {
+    toast(f.name + ' selected (' + mb + ' MB)');
+  }
+}
+
 async function startP(){
-if(!sF){toast('Please select a video first!');return;}
-if(!window.videoProcessor){toast('FFmpeg not loaded. Please refresh page.');return;}
-var btn=document.getElementById('pb2');
-btn.disabled=true;btn.textContent='Processing...';
-document.getElementById('er').style.display='none';
-document.getElementById('vp').style.display='none';
-document.getElementById('dl-area').style.display='none';
-document.getElementById('loader').style.display='flex';
-document.getElementById('lt').style.display='block';
-document.getElementById('spb').style.display='none';
-if(sF.size>500*1024*1024)aLog('Large movie: '+(sF.size/1073741824).toFixed(2)+' GB - Do NOT close tab!','s');
-aLog('Starting FFmpeg processing...','s');
-try{
-var r=await videoProcessor.process(sF,{stripMetadata:true,reencodeVideo:true,reencodeAudio:true,crf:23,outputFormat:'mp4'});
-pB=r.blob;
-document.getElementById('loader').style.display='none';
-var url=URL.createObjectURL(r.blob),vp=document.getElementById('vp');
-vp.src=url;vp.style.display='block';
-var dlb=document.getElementById('dlb');
-dlb.href=url;dlb.download=sF.name.replace(/.[^.]+$/,'')+' cleaned.mp4';
-document.getElementById('dl-area').style.display='flex';
-showSt(r.stats);
-btn.textContent='Processing Complete';btn.disabled=false;
-aLog('Done! Output: '+(r.blob.size/1048576).toFixed(2)+' MB','i');
-toast('Video processed successfully!');
-}catch(e){
-document.getElementById('loader').style.display='none';
-document.getElementById('er').style.display='flex';
-btn.disabled=false;btn.textContent='Remove Copyright';
-aLog('Error: '+e.message,'e');
-aLog('Tip: For large movies over 3GB use Chrome browser.','i');
-toast('Processing failed. See log below.');
+  if(!sF){ toast('Please select a video first!'); return; }
+  if(!window.videoProcessor){ toast('FFmpeg engine initializing... Please wait 5 seconds.'); return; }
+
+  var btn = document.getElementById('pb2');
+  btn.disabled = true;
+  btn.textContent = 'Processing Video...';
+
+  document.getElementById('er').style.display = 'none';
+  document.getElementById('vp').style.display = 'none';
+  document.getElementById('dl-area').style.display = 'none';
+  document.getElementById('spb').style.display = 'none';
+  document.getElementById('loader').style.display = 'flex';
+  document.getElementById('lt').style.display = 'block';
+
+  // Reset progress bar
+  document.getElementById('pb').style.width = '0%';
+  document.getElementById('pt').textContent = '0%';
+  document.getElementById('stt').textContent = 'Scrubbing Copyright Markers...';
+
+  aLog('--- Processing Started for: ' + sF.name + ' ---', 's');
+
+  try {
+    var r = await videoProcessor.process(sF, {
+      stripMetadata: true,
+      reencodeVideo: true,
+      reencodeAudio: true,
+      crf: 23,
+      outputFormat: 'mp4'
+    });
+
+    pB = r.blob;
+    document.getElementById('loader').style.display = 'none';
+
+    var outUrl = URL.createObjectURL(r.blob);
+    var vp = document.getElementById('vp');
+    vp.src = outUrl;
+    vp.style.display = 'block';
+
+    var dlb = document.getElementById('dlb');
+    dlb.href = outUrl;
+    dlb.download = sF.name.replace(/\.[^.]+$/, '') + '_cleaned_CR_free.mp4';
+    document.getElementById('dl-area').style.display = 'flex';
+
+    showSt(r.stats);
+    btn.textContent = 'Processing Complete ✓';
+    btn.disabled = false;
+    aLog('✓ Done! Output Size: ' + (r.blob.size/1048576).toFixed(2) + ' MB', 'i');
+    toast('Copyright bypassed successfully! Download ready.');
+
+  } catch(e){
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('er').style.display = 'flex';
+    btn.disabled = false;
+    btn.textContent = 'Remove Copyright';
+    aLog('Error: ' + e.message, 'e');
+    toast('Processing failed. See error log.');
+  }
 }
+
+function aLog(m,t){
+  var o=document.getElementById('lo');
+  if(!o) return;
+  var d=document.createElement('div');
+  d.className='ll'+(t?' '+t:'');
+  d.textContent=m;
+  o.appendChild(d);
+  o.scrollTop=o.scrollHeight;
 }
-function aLog(m,t){var o=document.getElementById('lo'),d=document.createElement('div');d.className='ll'+(t?' '+t:'');d.textContent=m;o.appendChild(d);o.scrollTop=o.scrollHeight;}
+
 function showSt(s){
-var fmt=function(b){return b>=1073741824?(b/1073741824).toFixed(2)+' GB':b>=1048576?(b/1048576).toFixed(2)+' MB':(b/1024).toFixed(1)+' KB';};
-document.getElementById('s1').textContent=fmt(s.originalSize);
-document.getElementById('s2').textContent=fmt(s.processedSize);
-var red=parseFloat(s.reduction);
-document.getElementById('s3').textContent=(red>0?'-':'+')+Math.abs(red)+'%';
-document.getElementById('s4').textContent=s.strippedTags.length;
-var row=document.getElementById('tr');row.innerHTML='';
-s.strippedTags.forEach(function(t){var c=document.createElement('span');c.className='tc';c.textContent=t;row.appendChild(c);});
-document.getElementById('spb').style.display='block';
+  var fmt=function(b){
+    return b>=1073741824 ? (b/1073741824).toFixed(2)+' GB' :
+           b>=1048576 ? (b/1048576).toFixed(2)+' MB' :
+           (b/1024).toFixed(1)+' KB';
+  };
+  document.getElementById('s1').textContent = fmt(s.originalSize);
+  document.getElementById('s2').textContent = fmt(s.processedSize);
+  var red = parseFloat(s.reduction);
+  document.getElementById('s3').textContent = (red>0?'-':'+') + Math.abs(red) + '%';
+  document.getElementById('s4').textContent = s.strippedTags.length;
+
+  var row = document.getElementById('tr');
+  row.innerHTML = '';
+  s.strippedTags.forEach(function(t){
+    var c = document.createElement('span');
+    c.className = 'tc';
+    c.textContent = '✓ ' + t;
+    row.appendChild(c);
+  });
+  document.getElementById('spb').style.display = 'block';
 }
+
 function openAuth(m){
-il=m==='login';
-document.getElementById('at').textContent=il?'Login to Account':'Create Account';
-document.getElementById('as').textContent=il?'Login':'Register';
-document.getElementById('atg').innerHTML=il?'Need account? <span>Register.</span>':'Have account? <span>Login here.</span>';
-document.getElementById('cg').style.display=il?'none':'';
-document.getElementById('authMo').classList.add('act');
-document.body.style.overflow='hidden';
+  il = (m === 'login');
+  document.getElementById('at').textContent = il ? 'Login to Account' : 'Create Account';
+  document.getElementById('as').textContent = il ? 'Login' : 'Register';
+  document.getElementById('atg').innerHTML = il ? 'Need account? <span>Register.</span>' : 'Have account? <span>Login here.</span>';
+  document.getElementById('cg').style.display = il ? 'none' : '';
+  document.getElementById('authMo').classList.add('act');
+  document.body.style.overflow = 'hidden';
 }
-function closeAuth(){document.getElementById('authMo').classList.remove('act');document.body.style.overflow='';}
-function toggleAuth(){openAuth(il?'register':'login');}
+
+function closeAuth(){
+  document.getElementById('authMo').classList.remove('act');
+  document.body.style.overflow = '';
+}
+
+function toggleAuth(){ openAuth(il ? 'register' : 'login'); }
+
 function handleAuth(e){
-e.preventDefault();
-var m=document.getElementById('am').value.trim(),p=document.getElementById('ap').value,c=document.getElementById('ac').value;
-if(!/^[0-9]{10}$/.test(m)){toast('Enter valid 10-digit mobile!');return;}
-if(!il&&p!==c){toast('Passwords do not match!');return;}
-setTimeout(function(){li=true;cp=m;localStorage.setItem('cr_l','true');localStorage.setItem('cr_p',m);closeAuth();updNav();toast('Welcome '+m+'!');},600);
+  e.preventDefault();
+  var m=document.getElementById('am').value.trim(),p=document.getElementById('ap').value,c=document.getElementById('ac').value;
+  if(!/^[0-9]{10}$/.test(m)){toast('Enter valid 10-digit mobile!');return;}
+  if(!il&&p!==c){toast('Passwords do not match!');return;}
+  setTimeout(function(){
+    li=true;cp=m;
+    localStorage.setItem('cr_l','true');
+    localStorage.setItem('cr_p',m);
+    closeAuth();updNav();
+    toast('Welcome '+m+'!');
+  },600);
 }
-function restSess(){if(localStorage.getItem('cr_l')==='true'){li=true;cp=localStorage.getItem('cr_p')||'';}if(localStorage.getItem('cr_pl')==='true')hp=true;if(li)updNav();}
-function updNav(){var b=document.getElementById('loginBtn');if(li){b.textContent=cp.slice(0,5)+'***';b.onclick=function(){if(confirm('Logout?')){localStorage.clear();location.reload();}};}}
+
+function restSess(){
+  if(localStorage.getItem('cr_l')==='true'){li=true;cp=localStorage.getItem('cr_p')||'';}
+  if(localStorage.getItem('cr_pl')==='true')hp=true;
+  if(li)updNav();
+}
+
+function updNav(){
+  var b=document.getElementById('loginBtn');
+  if(li && b){
+    b.textContent=cp.slice(0,5)+'***';
+    b.onclick=function(){if(confirm('Logout?')){localStorage.clear();location.reload();}};
+  }
+}
+
 function openPay(n,a){
-if(!li){toast('Please login first.');openAuth('login');return;}
-document.getElementById('ppn').textContent=n;
-document.getElementById('pam').textContent=String.fromCharCode(8377)+a;
-document.getElementById('payMo').classList.add('act');
-document.body.style.overflow='hidden';
-var r=300,el=document.getElementById('ptmr');
-if(pt)clearInterval(pt);
-pt=setInterval(function(){var m=Math.floor(r/60),s=r%60;el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');if(--r<0){clearInterval(pt);el.textContent='Expired';}},1000);
+  if(!li){toast('Please login first.');openAuth('login');return;}
+  document.getElementById('ppn').textContent=n;
+  document.getElementById('pam').textContent=String.fromCharCode(8377)+a;
+  document.getElementById('payMo').classList.add('act');
+  document.body.style.overflow='hidden';
+  var r=300,el=document.getElementById('ptmr');
+  if(pt)clearInterval(pt);
+  pt=setInterval(function(){
+    var m=Math.floor(r/60),s=r%60;
+    el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    if(--r<0){clearInterval(pt);el.textContent='Expired';}
+  },1000);
 }
-function closePay(){document.getElementById('payMo').classList.remove('act');document.body.style.overflow='';if(pt)clearInterval(pt);}
-function payOk(){closePay();hp=true;localStorage.setItem('cr_pl','true');toast('Plan activated! Enjoy unlimited processing.');}
-function copyUPI(){if(navigator.clipboard)navigator.clipboard.writeText('bilalkhan@paytm');toast('UPI ID copied!');}
-function openYT(){document.getElementById('ytOv').classList.add('show');document.body.style.overflow='hidden';}
-function closeYT(){document.getElementById('ytOv').classList.remove('show');document.body.style.overflow='';}
-document.addEventListener('click',function(e){if(e.target.id==='ytOv')closeYT();if(e.target.id==='authMo')closeAuth();if(e.target.id==='payMo')closePay();});
-function toast(m,d){var w=document.getElementById('tw'),t=document.createElement('div');t.className='ts';t.textContent=m;w.appendChild(t);setTimeout(function(){t.style.cssText='opacity:0;transform:translateX(40px);transition:.3s';setTimeout(function(){t.remove();},300);},d||3500);}
+
+function closePay(){
+  document.getElementById('payMo').classList.remove('act');
+  document.body.style.overflow='';
+  if(pt)clearInterval(pt);
+}
+
+function payOk(){
+  closePay();
+  hp=true;
+  localStorage.setItem('cr_pl','true');
+  toast('Plan activated! Unlimited processing enabled.');
+}
+
+function copyUPI(){
+  if(navigator.clipboard) navigator.clipboard.writeText('bilalkhan@paytm');
+  toast('UPI ID copied!');
+}
+
+function openYT(){
+  document.getElementById('ytOv').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+
+function closeYT(){
+  document.getElementById('ytOv').classList.remove('show');
+  document.body.style.overflow='';
+}
+
+document.addEventListener('click',function(e){
+  if(e.target.id==='ytOv')closeYT();
+  if(e.target.id==='authMo')closeAuth();
+  if(e.target.id==='payMo')closePay();
+});
+
+function toast(m,d){
+  var w=document.getElementById('tw');
+  if(!w) return;
+  var t=document.createElement('div');
+  t.className='ts';
+  t.textContent=m;
+  w.appendChild(t);
+  setTimeout(function(){
+    t.style.cssText='opacity:0;transform:translateX(40px);transition:.3s';
+    setTimeout(function(){t.remove();},300);
+  },d||3500);
+}
 </script>
 </body>
 </html>
