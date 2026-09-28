@@ -1,9 +1,8 @@
 /**
- * processor.js — Video Processing Engine using FFmpeg.wasm v0.11
- * Compatible with GitHub Pages (no SharedArrayBuffer required)
- * Uses @ffmpeg/ffmpeg@0.11.x createFFmpeg() API
+ * processor.js — Video Processing Engine using FFmpeg.wasm v0.12
+ * Requires COOP/COEP headers (provided by sw.js service worker)
+ * Uses @ffmpeg/ffmpeg v0.12 + @ffmpeg/core v0.12 (single-thread, stable)
  */
-
 'use strict';
 
 class VideoProcessor {
@@ -19,45 +18,50 @@ class VideoProcessor {
     async load() {
         if (this.isLoaded) return true;
         this._emit('status', 'Initializing FFmpeg engine...');
+        this._emit('log', 'Loading FFmpeg WebAssembly...');
 
-        // Wait for FFmpeg to be available (loaded from CDN script tag)
+        // Wait for FFmpeg scripts from CDN
         let attempts = 0;
-        while (!window.FFmpeg && !window.createFFmpeg && attempts < 20) {
+        while ((!window.FFmpegWASM || !window.FFmpegUtil) && attempts < 30) {
             await new Promise(r => setTimeout(r, 300));
             attempts++;
         }
 
-        const createFFmpeg = window.createFFmpeg || (window.FFmpeg && window.FFmpeg.createFFmpeg);
-        const fetchFile = window.fetchFile || (window.FFmpeg && window.FFmpeg.fetchFile);
-
-        if (!createFFmpeg) {
-            this._emit('log', 'ERROR: FFmpeg library not available. Check internet connection.', 'e');
-            this._emit('status', 'Engine load failed!');
+        if (!window.FFmpegWASM || !window.FFmpegUtil) {
+            this._emit('log', 'ERROR: FFmpeg library not found. Check internet.', 'e');
+            this._emit('status', 'Engine failed to load!');
             return false;
         }
 
         try {
-            this._emit('log', 'Loading FFmpeg WebAssembly...', 's');
+            const { FFmpeg } = window.FFmpegWASM;
+            const { toBlobURL } = window.FFmpegUtil;
 
-            this.ffmpeg = createFFmpeg({
-                log: true,
-                progress: ({ ratio }) => {
-                    const pct = Math.min(Math.round(ratio * 100), 99);
-                    this._emit('progress', pct);
-                },
-                logger: ({ message }) => {
-                    this._emit('log', message);
-                },
-                corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+            this.ffmpeg = new FFmpeg();
+
+            this.ffmpeg.on('log', ({ message }) => {
+                this._emit('log', message);
             });
 
-            this._fetchFile = fetchFile;
+            this.ffmpeg.on('progress', ({ progress }) => {
+                const pct = Math.min(Math.round(progress * 100), 99);
+                if (pct > 0) this._emit('progress', pct);
+            });
 
-            await this.ffmpeg.load();
+            // Use single-threaded core (no SharedArrayBuffer strictly required)
+            const BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+            this._emit('log', 'Downloading FFmpeg core (~25MB)...', 's');
+
+            const coreURL = await toBlobURL(`${BASE}/ffmpeg-core.js`, 'text/javascript');
+            const wasmURL = await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm');
+
+            await this.ffmpeg.load({ coreURL, wasmURL });
+
             this.isLoaded = true;
             this._emit('status', 'Engine Ready ✓');
-            this._emit('log', '✓ FFmpeg engine loaded successfully!', 'i');
+            this._emit('log', '✓ FFmpeg engine loaded! Ready to process.', 'i');
             return true;
+
         } catch (err) {
             this._emit('log', 'Load error: ' + (err?.message || String(err)), 'e');
             this._emit('status', 'Engine load failed!');
@@ -91,28 +95,24 @@ class VideoProcessor {
         const outputFile = `output.${opts.outputFormat}`;
 
         try {
-            // Write file
+            // Write input file (chunked for large files)
             this._emit('status', isLarge
-                ? `Loading large file (${fileSizeGB.toFixed(2)} GB)...`
-                : 'Loading video...');
-            this._emit('progress', 5);
+                ? `Loading ${fileSizeGB.toFixed(2)} GB file...`
+                : 'Loading video file...');
+            this._emit('progress', 3);
 
-            if (isLarge) {
-                this._emit('log', `Large file: ${fileSizeGB.toFixed(2)} GB — chunked loading...`, 'i');
-                await this._writeChunked(inputFile, file);
-            } else {
-                const data = await this._fetchFile(file);
-                this.ffmpeg.FS('writeFile', inputFile, data);
-            }
+            await this._writeFileSafe(inputFile, file);
 
-            // Build FFmpeg args
+            // Build FFmpeg command
             const args = ['-i', inputFile];
             if (opts.stripMetadata) {
                 args.push('-map_metadata', '-1', '-map_chapters', '-1');
             }
             if (opts.reencodeVideo) {
-                args.push('-c:v', 'libx264', '-crf', String(opts.crf),
-                    '-preset', preset, '-pix_fmt', 'yuv420p',
+                args.push('-c:v', 'libx264',
+                    '-crf', String(opts.crf),
+                    '-preset', preset,
+                    '-pix_fmt', 'yuv420p',
                     '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2,unsharp=3:3:0.5:3:3:0.0');
             } else {
                 args.push('-c:v', 'copy');
@@ -127,31 +127,35 @@ class VideoProcessor {
             }
             args.push('-y', outputFile);
 
-            // Run FFmpeg
+            // Run
             if (isLarge) {
-                this._emit('status', `Processing ${fileSizeGB.toFixed(2)} GB movie — this may take 30-90 minutes...`);
-                this._emit('log', `⚠️ Large file (${fileSizeGB.toFixed(2)} GB): preset=${preset}. Do NOT close this tab!`, 'i');
+                this._emit('status', `Processing ${fileSizeGB.toFixed(2)} GB movie... (30-90 min)`);
+                this._emit('log', `⚠️ Large file ${fileSizeGB.toFixed(2)} GB: Keep tab active!`, 'i');
             } else {
-                this._emit('status', 'Re-encoding video...');
+                this._emit('status', 'Re-encoding video stream...');
             }
-            this._emit('log', `FFmpeg args: ${args.join(' ')}`, 's');
+            this._emit('log', `Running: ffmpeg ${args.slice(0, 8).join(' ')}...`, 's');
 
-            await this.ffmpeg.run(...args);
+            const ret = await this.ffmpeg.exec(args, 0); // 0 = no timeout
+
+            if (ret !== 0) {
+                throw new Error(`FFmpeg exited with code ${ret}`);
+            }
 
             // Read output
-            this._emit('status', 'Reading processed output...');
-            const outputData = this.ffmpeg.FS('readFile', outputFile);
+            this._emit('status', 'Finalizing output...');
+            const outputData = await this.ffmpeg.readFile(outputFile);
 
             if (!outputData || outputData.length === 0) {
-                throw new Error('Processed video output is 0 bytes.');
+                throw new Error('Output file is empty (0 bytes).');
             }
 
             const mimeType = opts.outputFormat === 'webm' ? 'video/webm' : 'video/mp4';
-            const blob = new Blob([outputData.buffer], { type: mimeType });
+            const blob = new Blob([outputData], { type: mimeType });
 
             // Cleanup
-            try { this.ffmpeg.FS('unlink', inputFile); } catch (_) {}
-            try { this.ffmpeg.FS('unlink', outputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(inputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(outputFile); } catch (_) {}
 
             this.isProcessing = false;
             this._emit('progress', 100);
@@ -176,16 +180,21 @@ class VideoProcessor {
 
         } catch (err) {
             this.isProcessing = false;
-            try { this.ffmpeg.FS('unlink', inputFile); } catch (_) {}
-            try { this.ffmpeg.FS('unlink', outputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(inputFile); } catch (_) {}
+            try { await this.ffmpeg.deleteFile(outputFile); } catch (_) {}
             throw err;
         }
     }
 
-    async _writeChunked(inputFile, file) {
-        const CHUNK = 64 * 1024 * 1024; // 64MB chunks
+    async _writeFileSafe(inputFile, file) {
+        const CHUNK = 64 * 1024 * 1024; // 64MB
+        if (file.size <= CHUNK) {
+            const buf = await file.arrayBuffer();
+            await this.ffmpeg.writeFile(inputFile, new Uint8Array(buf));
+            return;
+        }
         const total = Math.ceil(file.size / CHUNK);
-        let allBytes = new Uint8Array(file.size);
+        const allBytes = new Uint8Array(file.size);
         let offset = 0;
         for (let i = 0; i < total; i++) {
             const start = i * CHUNK;
@@ -194,11 +203,10 @@ class VideoProcessor {
             allBytes.set(new Uint8Array(chunk), offset);
             offset += chunk.byteLength;
             this._emit('progress', Math.round(((i + 1) / total) * 12));
-            this._emit('status', `Loading: ${i + 1}/${total} chunks...`);
+            this._emit('status', `Loading chunk ${i + 1}/${total}...`);
             await new Promise(r => setTimeout(r, 0));
         }
-        this.ffmpeg.FS('writeFile', inputFile, allBytes);
-        allBytes = null;
+        await this.ffmpeg.writeFile(inputFile, allBytes);
     }
 
     _emit(event, data) {

@@ -354,11 +354,24 @@ footer{background:#080808;border-top:1px solid rgba(255,255,255,.08);padding:3re
 
 <div id="tw"></div>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 <script src="processor.js"></script>
 <script>
 var sF=null,pB=null,li=false,hp=false,cp='',il=false,pt=null;
+// Register Service Worker (enables SharedArrayBuffer on GitHub Pages)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(function(reg){
+    if(!navigator.serviceWorker.controller){
+      window.location.reload();
+    }
+  }).catch(function(e){console.warn('SW reg failed:',e);});
+}
 document.addEventListener('DOMContentLoaded',function(){
+// Setup callbacks immediately after processor.js loads
+videoProcessor.onProgress=function(p){document.getElementById('pb').style.width=p+'%';document.getElementById('pt').textContent=p+'%';};
+videoProcessor.onLog=function(m,t){aLog(m,t);};
+videoProcessor.onStatus=function(m){document.getElementById('stt').textContent=m;};
 var h=document.getElementById('hb'),nl=document.getElementById('nl');
 h.addEventListener('click',function(){h.classList.toggle('open');nl.classList.toggle('open');});
 nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){h.classList.remove('open');nl.classList.remove('open');});});
@@ -371,11 +384,6 @@ da.addEventListener('drop',function(e){if(e.dataTransfer.files[0])pickF(e.dataTr
 document.querySelectorAll('.fq').forEach(function(q){q.addEventListener('click',function(){var it=q.parentElement,was=it.classList.contains('act');document.querySelectorAll('.fi').forEach(function(i){i.classList.remove('act');});if(!was)it.classList.add('act');});});
 document.getElementById('fsrch').addEventListener('input',function(){var q=this.value.toLowerCase();document.querySelectorAll('.fi').forEach(function(it){it.style.display=(!q||it.textContent.toLowerCase().includes(q))?'':'none';});});
 restSess();
-if(window.videoProcessor){
-videoProcessor.onProgress=function(p){document.getElementById('pb').style.width=p+'%';document.getElementById('pt').textContent=p+'%';};
-videoProcessor.onLog=function(m){aLog(m);};
-videoProcessor.onStatus=function(m){document.getElementById('stt').textContent=m;};
-}
 setTimeout(function(){if(!sessionStorage.getItem('yt_s')){openYT();sessionStorage.setItem('yt_s','1');}},1500);
 });
 function pickF(f){
@@ -383,8 +391,14 @@ if(!f.type.startsWith('video/')){toast('Please select a valid video file.');retu
 sF=f;pB=null;
 var mb=(f.size/1048576).toFixed(2),gb=(f.size/1073741824).toFixed(2),big=f.size>500*1024*1024;
 document.getElementById('fnm').textContent=f.name+' ('+(big?gb+' GB':mb+' MB')+')';
-document.getElementById('er').style.display='flex';
-document.getElementById('vp').style.display='none';
+// Show video thumbnail preview in result box
+var vp=document.getElementById('vp');
+var prevUrl=URL.createObjectURL(f);
+vp.src=prevUrl;
+vp.muted=true;
+vp.style.display='block';
+vp.onloadeddata=function(){vp.currentTime=1;};
+document.getElementById('er').style.display='none';
 document.getElementById('dl-area').style.display='none';
 document.getElementById('spb').style.display='none';
 document.getElementById('lt').style.display='none';
