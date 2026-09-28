@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+const fs = require('fs');
+const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -412,7 +413,7 @@ document.getElementById('loader').style.display='none';
 var url=URL.createObjectURL(r.blob),vp=document.getElementById('vp');
 vp.src=url;vp.style.display='block';
 var dlb=document.getElementById('dlb');
-dlb.href=url;dlb.download=sF.name.replace(/.[^.]+$/,'')+' cleaned.mp4';
+dlb.href=url;dlb.download=sF.name.replace(/\.[^.]+$/,'')+' cleaned.mp4';
 document.getElementById('dl-area').style.display='flex';
 showSt(r.stats);
 btn.textContent='Processing Complete';btn.disabled=false;
@@ -478,4 +479,6 @@ document.addEventListener('click',function(e){if(e.target.id==='ytOv')closeYT();
 function toast(m,d){var w=document.getElementById('tw'),t=document.createElement('div');t.className='ts';t.textContent=m;w.appendChild(t);setTimeout(function(){t.style.cssText='opacity:0;transform:translateX(40px);transition:.3s';setTimeout(function(){t.remove();},300);},d||3500);}
 </script>
 </body>
-</html>
+</html>`;
+fs.writeFileSync('index.html', html, 'utf8');
+console.log('Written', html.length, 'bytes');
