@@ -56,6 +56,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;align-items:cen
   gap:20px;
   max-width:1080px;
   margin:0 auto;
+  align-items:center;
 }
 
 /* LEFT CARD */
@@ -63,17 +64,17 @@ nav{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;align-items:cen
   background:var(--card);
   border:1px solid var(--border);
   border-radius:22px;
-  padding:28px;
+  padding:24px 26px;
   display:flex;
   flex-direction:column;
-  gap:16px;
+  gap:14px;
 }
 
 /* DROP ZONE */
 .drop-zone{
   border:2px dashed rgba(255,255,255,.15);
   border-radius:16px;
-  padding:2.8rem 1.5rem;
+  padding:2rem 1.5rem;
   cursor:pointer;
   text-align:center;
   transition:.25s;
@@ -83,7 +84,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;align-items:cen
   align-items:center;
   justify-content:center;
   gap:.6rem;
-  min-height:180px;
+  min-height:160px;
 }
 .drop-zone:hover,.drop-zone.dragover{
   border-color:rgba(0,210,255,.4);
@@ -118,48 +119,71 @@ nav{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;align-items:cen
 }
 .btn-process:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
-/* RIGHT CARD — blank dark by default */
+/* RIGHT CARD — strictly 16:9 aspect ratio frame */
 .result-card{
   background:var(--card2);
   border:1px solid var(--border);
   border-radius:22px;
   overflow:hidden;
-  min-height:340px;
+  width:100%;
+  aspect-ratio:16 / 9;
   display:flex;
   flex-direction:column;
-  align-items:stretch;
+  align-items:center;
   justify-content:center;
   position:relative;
+  box-shadow:0 10px 40px rgba(0,0,0,.4);
 }
 
-/* VIDEO fills entire right card */
+/* Placeholder inside right card when no video selected */
+.result-placeholder{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  color:var(--sub);
+  font-size:.9rem;
+  pointer-events:none;
+  text-align:center;
+  padding:1rem;
+}
+.result-placeholder span{font-size:2.4rem;opacity:.45}
+
+/* VIDEO fills entire 16:9 right card */
 #videoPreview{
   width:100%;
   height:100%;
-  min-height:340px;
+  aspect-ratio:16 / 9;
   object-fit:contain;
   background:#000;
   display:none; /* hidden by default */
+  transition:filter .3s ease;
+}
+.video-blur{
+  filter:blur(8px) brightness(0.4) !important;
 }
 
-/* LOADER sits inside right card */
+/* LOADER sits inside 16:9 right card */
 #loader{
   display:none;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:12px;
-  padding:2rem;
+  padding:1.5rem 2rem;
   position:absolute;
   inset:0;
-  background:var(--card2);
+  background:rgba(10,10,14,.8);
+  backdrop-filter:blur(8px);
   border-radius:22px;
+  z-index:10;
 }
 .spinner{width:52px;height:52px;border-radius:50%;border:3px solid rgba(0,210,255,.15);border-top-color:var(--cyan);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loader-title{font-size:1.05rem;font-weight:800;color:#fff;text-align:center}
 .loader-sub{font-size:.82rem;color:var(--cyan);text-align:center;min-height:1.1rem;padding:0 1rem}
-.prog-track{width:100%;background:rgba(255,255,255,.08);border-radius:999px;height:7px;overflow:hidden;margin:.25rem 0}
+.prog-track{width:100%;max-width:380px;background:rgba(255,255,255,.08);border-radius:999px;height:7px;overflow:hidden;margin:.25rem 0}
 #progBar{height:100%;width:0%;border-radius:999px;transition:width .18s ease-out;background:linear-gradient(90deg,#00d2ff,#7928ca,#2ed573)}
 .prog-pct{font-size:1.1rem;color:var(--cyan);font-weight:900}
 
@@ -315,8 +339,14 @@ footer{background:#0d0d10;border-top:1px solid var(--border);padding:3rem 5% 1.5
         <button class="btn-process" id="processBtn" onclick="startProcess()">Remove Copyright</button>
       </div>
 
-      <!-- RIGHT CARD — Preview & Result -->
+      <!-- RIGHT CARD — Preview & Result (16:9 Aspect Ratio) -->
       <div class="result-card" id="resultCard">
+
+        <!-- 16:9 Preview placeholder before file selected -->
+        <div class="result-placeholder" id="resPlaceholder">
+          <span>🎬</span>
+          <p>Video Preview &amp; Processing Frame (16:9)</p>
+        </div>
 
         <!-- Video fills right card when file selected -->
         <video id="videoPreview" controls playsinline></video>
@@ -582,11 +612,16 @@ function onFile(file){
   // Show file name under drop zone
   document.getElementById('fileName').textContent = file.name;
 
-  // ★ KEY: immediately play video in RIGHT card (no delay, no canvas)
+  // Hide 16:9 placeholder
+  var ph = document.getElementById('resPlaceholder');
+  if(ph) ph.style.display = 'none';
+
+  // ★ KEY: immediately play video in 16:9 RIGHT card (no delay, no canvas)
   var vp = document.getElementById('videoPreview');
   vp.src = URL.createObjectURL(file);
   vp.muted = true;
   vp.loop = true;
+  vp.classList.remove('video-blur');
   vp.style.display = 'block'; // show the video element
   vp.play().catch(function(){});
 
@@ -614,9 +649,13 @@ async function startProcess(){
   btn.disabled = true;
   btn.textContent = 'Processing...';
 
-  // Hide video preview, show loader INSIDE right card
+  // Keep 16:9 video frame active with blur overlay during processing
   var vp = document.getElementById('videoPreview');
-  vp.style.display = 'none';
+  vp.classList.add('video-blur');
+  vp.style.display = 'block';
+  var ph = document.getElementById('resPlaceholder');
+  if(ph) ph.style.display = 'none';
+
   document.getElementById('downloadArea').style.display = 'none';
   document.getElementById('loader').style.display = 'flex';
   document.getElementById('logBox').style.display = 'block';
@@ -630,10 +669,11 @@ async function startProcess(){
     var result = await ultraEngine(selFile);
     cleanBlob = result.blob;
 
-    // Hide loader
+    // Hide loader and unblur video
     document.getElementById('loader').style.display = 'none';
+    vp.classList.remove('video-blur');
 
-    // ★ Show CLEANED video in right card
+    // ★ Show CLEANED video in 16:9 right card
     var cleanUrl = URL.createObjectURL(cleanBlob);
     vp.src = cleanUrl;
     vp.muted = false;
@@ -656,6 +696,7 @@ async function startProcess(){
 
   } catch(err){
     document.getElementById('loader').style.display = 'none';
+    vp.classList.remove('video-blur');
     // Restore video preview on error
     vp.src = selFile ? URL.createObjectURL(selFile) : '';
     vp.style.display = 'block';
