@@ -733,7 +733,7 @@ async function startProcess(){
 async function ultraEngine(file){
   var origSize = file.size;
 
-  // ===== STEP 1: Binary metadata atom wipe (0 → 20%) =====
+  // ===== STEP 1: ISO BMFF Spec-Compliant Metadata Neutralization (0 → 20%) =====
   setP(3, 'Step 1/4: Reading binary container...');
   log('Reading MP4/WebM/MKV binary container atoms...', 's');
 
@@ -746,24 +746,62 @@ async function ultraEngine(file){
     var atom = atoms[a];
     var ab = [];
     for(var k = 0; k < atom.length; k++) ab.push(atom.charCodeAt(k));
-    var limit = Math.min(u8.length - 20, 12000000);
+    var limit = Math.min(u8.length - 8, 12000000);
     for(var i = 0; i < limit; i++){
       var hit = true;
       for(var j = 0; j < ab.length; j++){ if(u8[i+j] !== ab[j]){ hit=false; break; } }
       if(hit){
-        // Zero the tag name + next 32 bytes of its data
-        for(var z = 0; z < Math.min(36, u8.length - i); z++) u8[i+z] = 0;
+        // In ISO BMFF, box header is: [4 bytes size at i-4][4 bytes type at i]
+        if(i >= 4){
+          var boxSize = (u8[i - 4] << 24) | (u8[i - 3] << 16) | (u8[i - 2] << 8) | u8[i - 1];
+          if(boxSize >= 8 && boxSize <= 2000000){
+            // Convert atom type to standard 'free' (0x66, 0x72, 0x65, 0x65)
+            // This safely neutralizes the metadata while keeping container 100% valid for Windows & YouTube!
+            u8[i]     = 0x66; // 'f'
+            u8[i + 1] = 0x72; // 'r'
+            u8[i + 2] = 0x65; // 'e'
+            u8[i + 3] = 0x65; // 'e'
+            var payloadEnd = Math.min(i + boxSize - 4, u8.length);
+            for(var p = i + 4; p < payloadEnd; p++) u8[p] = 0;
+            cleared++;
+            i += Math.max(4, boxSize - 4);
+            continue;
+          }
+        }
+        // Fallback for non-standard atoms: zero out payload without destroying length
+        for(var z = 4; z < Math.min(32, u8.length - i); z++) u8[i+z] = 0;
         cleared++;
-        i += 4; // skip past cleared region
+        i += 4;
       }
     }
-    setP(3 + Math.round((a / atoms.length) * 17), 'Step 1/4: Wiping ' + atom + ' atom...');
-    log('Scrubbed: ' + atom + (cleared > 0 ? ' (' + cleared + ' markers)' : ' (scan complete)'), 's');
-    await delay(80);
+    setP(3 + Math.round((a / atoms.length) * 17), 'Step 1/4: Neutralizing ' + atom + ' atom...');
+    log('Neutralized: ' + atom + (cleared > 0 ? ' (' + cleared + ' markers)' : ' (scan complete)'), 's');
+    await delay(70);
+  }
+
+  // Update Movie Header (mvhd) Creation & Modification Timestamps to current time (seconds since 1904)
+  var mvhd = [0x6d, 0x76, 0x68, 0x64]; // 'mvhd'
+  for(var m = 0; m < Math.min(u8.length - 32, 2000000); m++){
+    if(u8[m]===mvhd[0] && u8[m+1]===mvhd[1] && u8[m+2]===mvhd[2] && u8[m+3]===mvhd[3]){
+      var ver = u8[m + 4];
+      var now1904 = Math.floor((Date.now() / 1000) + 2082844800);
+      if(ver === 0){
+        u8[m + 8]  = (now1904 >>> 24) & 0xFF;
+        u8[m + 9]  = (now1904 >>> 16) & 0xFF;
+        u8[m + 10] = (now1904 >>> 8) & 0xFF;
+        u8[m + 11] = now1904 & 0xFF;
+        u8[m + 12] = (now1904 >>> 24) & 0xFF;
+        u8[m + 13] = (now1904 >>> 16) & 0xFF;
+        u8[m + 14] = (now1904 >>> 8) & 0xFF;
+        u8[m + 15] = now1904 & 0xFF;
+        log('✓ Movie Header (mvhd) timestamps updated to current time', 's');
+      }
+      break;
+    }
   }
 
   setP(20, 'Step 1/4: Binary metadata wipe complete ✓');
-  log('✓ ' + cleared + ' copyright fingerprint markers zeroed in binary', 'i');
+  log('✓ ' + cleared + ' copyright markers neutralized into ISO-compliant free boxes', 'i');
   await delay(150);
 
   // ===== STEP 2: Real video re-encode via MediaRecorder (20 → 65%) =====
@@ -936,15 +974,22 @@ async function ultraEngine(file){
   // Verify: output MUST be different from input
   var isDifferent = finalBlob.size !== origSize;
   if(!isDifferent){
-    // Force difference: append a null-byte signature block
-    var sig = new Uint8Array(32);
-    sig[0] = 0x43; sig[1] = 0x52; sig[2] = 0x52; sig[3] = 0x00; // 'CRR\0' marker
-    sig[4] = 0x01; sig[5] = 0x00; sig[6] = 0x00; sig[7] = 0x00; // version
+    // Append standard ISO-compliant 'free' box to guarantee unique file hash
+    // [4 bytes size = 32][4 bytes type = 'free'][24 bytes signature payload]
+    var freeBox = new Uint8Array(32);
+    freeBox[0] = 0x00; freeBox[1] = 0x00; freeBox[2] = 0x00; freeBox[3] = 0x20; // 32 bytes
+    freeBox[4] = 0x66; freeBox[5] = 0x72; freeBox[6] = 0x65; freeBox[7] = 0x65; // 'free'
+    freeBox[8] = 0x43; freeBox[9] = 0x52; freeBox[10] = 0x52; freeBox[11] = 0x32; // 'CRR2'
+    var nowSec = Math.floor(Date.now() / 1000);
+    freeBox[12] = (nowSec >>> 24) & 0xFF;
+    freeBox[13] = (nowSec >>> 16) & 0xFF;
+    freeBox[14] = (nowSec >>> 8) & 0xFF;
+    freeBox[15] = nowSec & 0xFF;
     var origData = new Uint8Array(await finalBlob.arrayBuffer());
-    var merged = new Uint8Array(origData.length + sig.length);
+    var merged = new Uint8Array(origData.length + freeBox.length);
     merged.set(origData, 0);
-    merged.set(sig, origData.length);
-    finalBlob = new Blob([merged], { type: finalBlob.type });
+    merged.set(freeBox, origData.length);
+    finalBlob = new Blob([merged], { type: finalBlob.type || 'video/mp4' });
     isDifferent = true;
   }
 
