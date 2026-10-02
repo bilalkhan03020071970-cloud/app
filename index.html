@@ -840,7 +840,7 @@ async function ultraEngine(file){
 
   var reEncodedBlob = null;
 
-  if(mimeType && W > 0 && H > 0 && dur > 0 && dur < 1800){
+  if(mimeType && W > 0 && H > 0 && dur > 0){
     log('Re-encoder: ' + mimeType + ' pipeline ready', 's');
     setP(25, 'Step 2/4: Re-encoding video frames with DNA shift...');
 
@@ -879,7 +879,7 @@ async function ultraEngine(file){
       srcVid.play().then(function(){
         requestAnimationFrame(drawNextFrame);
         // Safety timeout
-        setTimeout(resolveRec, (dur * 1000) + 5000);
+        setTimeout(resolveRec, (dur * 1000) + 15000);
       }).catch(function(){
         resolveRec();
       });
@@ -940,10 +940,13 @@ async function ultraEngine(file){
     setP(72, 'Step 3/4: Applying acoustic frequency notch filter (0.15% shift)...');
 
     // OfflineAudioContext with real playbackRate shift
-    var off = new OfflineAudioContext(ch, Math.floor(len * 0.9985), sr);
+    // ✅ FIX: use full audio length (len * 1.0 not 0.9985 which was cutting audio)
+    var off = new OfflineAudioContext(ch, len, sr);
     var src2 = off.createBufferSource();
     src2.buffer = decoded;
-    src2.playbackRate.value = 1.0015; // Real 0.15% pitch up — breaks Audio Content ID
+    // ✅ FIX: playbackRate 1.0015 was cutting last 0.15% — now keep 1.0 + use detune instead
+    src2.playbackRate.value = 1.0;   // keep full duration
+    src2.detune.value = 2;           // +2 cents detune = breaks Audio Content ID fingerprint
     src2.connect(off.destination);
     src2.start(0);
     audioShiftedBuffer = await off.startRendering();
