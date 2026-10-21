@@ -844,9 +844,41 @@ async function ultraEngine(file){
         await ffmpegInst.writeFile(inputName, new Uint8Array(fbuf));
       }
 
-      setP(16, 'Step 2/3: Re-encoding (H.264) + shifting audio fingerprint...');
-      log('FFmpeg: H.264 re-encode + asetrate audio shift + metadata wipe...', 's');
+      setP(16, 'Step 2/3: Re-encoding + Content ID DNA Transform...');
+      log('\u26a0\ufe0f FFmpeg v4 ULTRA: H.264 + Speed Shift + Audio EQ + Color Remap + Metadata Wipe', 's');
       log('\u26a0\ufe0f Do NOT close this tab during processing!', 's');
+
+      // ── CONTENT ID BYPASS STRATEGY ──────────────────────────────────────
+      // 1. VIDEO: crop 1px each side → defeats pixel-exact frame hash
+      //           + scale back to even dims → new frame dimensions
+      //           + setpts=0.98*PTS → 2% speed up → new temporal fingerprint
+      //           + curves=all='0/0 0.5/0.52 1/1' → RGB brightness remap
+      //           + unsharp → new high-freq detail pattern
+      // 2. AUDIO: atempo=1.02 → 2% speed match to video
+      //           + asetrate=44100*1.02 → pitch/sample-rate shift
+      //           + equalizer=f=100:width_type=o:width=2:g=2 → bass boost 2dB
+      //           + equalizer=f=8000:width_type=o:width=2:g=-1 → treble cut 1dB
+      //           → spectrum scrambled, temporal fingerprint changed
+      // 3. METADATA: -map_metadata -1, -map_chapters -1, no encoder tag
+      // ────────────────────────────────────────────────────────────────────
+
+      var vfChain = [
+        'crop=iw-2:ih-2:1:1',
+        'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+        'setpts=0.98*PTS',
+        "curves=all='0/0 0.45/0.47 1/1'",
+        'hue=h=0.5:s=1.01',
+        'unsharp=5:5:0.8:5:5:0.0'
+      ].join(',');
+
+      var afChain = [
+        'asetrate=44100*1.02',
+        'atempo=0.98',
+        'aresample=44100',
+        'equalizer=f=80:width_type=o:width=2:g=2',
+        'equalizer=f=12000:width_type=o:width=2:g=-1.5',
+        'volume=1.002'
+      ].join(',');
 
       var ffArgs = [
         '-i', inputName,
@@ -854,18 +886,27 @@ async function ultraEngine(file){
         '-map', '0:a?',
         '-map_metadata', '-1',
         '-map_chapters', '-1',
-        '-bitexact',
+        '-fflags', '+bitexact',
+        '-flags:v', '+bitexact',
         '-c:v', 'libx264',
-        '-crf', isLargeFile ? '26' : '23',
+        '-crf', isLargeFile ? '25' : '22',
         '-preset', isLargeFile ? 'veryfast' : 'fast',
         '-pix_fmt', 'yuv420p',
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2,unsharp=3:3:0.5:3:3:0.0,hue=s=1.008,eq=brightness=0.008:contrast=1.005',
+        '-vf', vfChain,
         '-c:a', 'aac',
         '-b:a', '128k',
-        '-af', 'asetrate=44100*1.0003,atempo=0.9997,aresample=44100',
+        '-ar', '44100',
+        '-af', afChain,
         '-movflags', '+faststart',
+        '-metadata', 'title=',
+        '-metadata', 'artist=',
+        '-metadata', 'comment=',
+        '-metadata', 'encoder=',
         '-y', outputName
       ];
+
+      log('VIDEO: crop+scale+2%speed+curves+hue+unsharp', 's');
+      log('AUDIO: asetrate+atempo+EQ(bass+2dB/treble-1.5dB)+volume', 's');
 
       log('CMD: ffmpeg ' + ffArgs.join(' '), 's');
       var ret = await ffmpegInst.exec(ffArgs);
