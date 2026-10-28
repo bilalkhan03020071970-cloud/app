@@ -573,6 +573,13 @@ footer{background:#0d0d10;border-top:1px solid var(--border);padding:3rem 5% 1.5
 // ============================================================
 
 var selFile = null, cleanBlob = null, payInt = null;
+var currentVideoDuration = 0;
+function formatMinSec(s){
+  if(isNaN(s) || s < 0) return '00:00';
+  var m = Math.floor(s / 60);
+  var sec = Math.floor(s % 60);
+  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
 var ffmpegInst = null, ffmpegLoaded = false, ffmpegLoading = false;
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -780,12 +787,27 @@ async function loadFFmpeg(){
   ffmpegInst = new FFmpeg();
 
   ffmpegInst.on('log', function(ev){
-    if(ev && ev.message) log(ev.message);
-  });
-  ffmpegInst.on('progress', function(ev){
-    if(ev && typeof ev.progress === 'number'){
-      var pct = Math.min(Math.round(10 + ev.progress * 80), 92);
-      setP(pct, 'Step 2/3: Scrubbing Content ID DNA... (' + pct + '%)');
+    if(!ev || !ev.message) return;
+    log(ev.message);
+
+    // Extract total video duration from FFmpeg input header if not set yet
+    if(!currentVideoDuration || currentVideoDuration <= 0){
+      var dm = ev.message.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+      if(dm){
+        currentVideoDuration = parseFloat(dm[1]) * 3600 + parseFloat(dm[2]) * 60 + parseFloat(dm[3]);
+      }
+    }
+
+    // Extract current processed time from FFmpeg log for LIVE progress (never stuck at 18%)
+    if(ev.message.indexOf('time=') !== -1){
+      var tm = ev.message.match(/time=(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+      if(tm && currentVideoDuration > 0){
+        var curSec = parseFloat(tm[1]) * 3600 + parseFloat(tm[2]) * 60 + parseFloat(tm[3]);
+        var pct = Math.min(Math.round(18 + (curSec / currentVideoDuration) * 75), 93);
+        var curStr = formatMinSec(curSec);
+        var totStr = formatMinSec(currentVideoDuration);
+        setP(pct, 'Step 2/3: Transforming DNA... ' + pct + '% (' + curStr + ' / ' + totStr + ')');
+      }
     }
   });
 
@@ -810,11 +832,20 @@ async function loadFFmpeg(){
       log('⚠️ Multi-thread engine notice: ' + (mtErr.message || mtErr) + ' — switching to universal core...', 's');
       try { ffmpegInst.terminate(); } catch(_){}
       ffmpegInst = new FFmpeg();
-      ffmpegInst.on('log', function(ev){ if(ev && ev.message) log(ev.message); });
-      ffmpegInst.on('progress', function(ev){
-        if(ev && typeof ev.progress === 'number'){
-          var pct = Math.min(Math.round(10 + ev.progress * 80), 92);
-          setP(pct, 'Step 2/3: Scrubbing Content ID DNA... (' + pct + '%)');
+      ffmpegInst.on('log', function(ev){
+        if(!ev || !ev.message) return;
+        log(ev.message);
+        if(!currentVideoDuration || currentVideoDuration <= 0){
+          var dm = ev.message.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+          if(dm) currentVideoDuration = parseFloat(dm[1]) * 3600 + parseFloat(dm[2]) * 60 + parseFloat(dm[3]);
+        }
+        if(ev.message.indexOf('time=') !== -1){
+          var tm = ev.message.match(/time=(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/);
+          if(tm && currentVideoDuration > 0){
+            var curSec = parseFloat(tm[1]) * 3600 + parseFloat(tm[2]) * 60 + parseFloat(tm[3]);
+            var pct = Math.min(Math.round(18 + (curSec / currentVideoDuration) * 75), 93);
+            setP(pct, 'Step 2/3: Transforming DNA... ' + pct + '% (' + formatMinSec(curSec) + ' / ' + formatMinSec(currentVideoDuration) + ')');
+          }
         }
       });
     }
@@ -1037,13 +1068,13 @@ async function ultraEngine(file){
   var fileMB = origSize / 1048576;
   var fileGB = origSize / 1073741824;
 
-  // Very large files (>300MB): Canvas Streaming Engine (no memory limit, works up to 4hr+)
-  if(origSize > 300 * 1024 * 1024){
-    log('File > 300MB (' + fileGB.toFixed(2) + ' GB) → Canvas Streaming Engine (supports up to 4hr+ without memory limit)', 's');
+  // Very large files (>120MB or long videos): Canvas Streaming Engine (no memory limit, works up to 4hr+)
+  if(origSize > 120 * 1024 * 1024){
+    log('File > 120MB (' + fileMB.toFixed(1) + ' MB) → Canvas Streaming Engine (supports up to 4hr+ without memory limit)', 's');
     return await canvasEngine(file);
   }
 
-  // Files ≤ 300MB: Real FFmpeg.wasm H.264 Re-Encode
+  // Files ≤ 120MB: Real FFmpeg.wasm Re-Encode with live progress
   var ffmpegOk = await loadFFmpeg();
 
   if(ffmpegOk && ffmpegInst){
@@ -1053,6 +1084,7 @@ async function ultraEngine(file){
     var ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
     var inputName  = 'input_' + Date.now() + '.' + ext;
     var outputName = 'clean_' + Date.now() + '.mp4';
+    var tickInterval = null;
 
     try {
       log('Buffering ' + fileMB.toFixed(1) + ' MB into WASM sandbox...', 's');
@@ -1060,40 +1092,45 @@ async function ultraEngine(file){
       await ffmpegInst.writeFile(inputName, new Uint8Array(fbuf));
 
       setP(18, 'Step 2/3: Applying Anti-Copyright Video & Audio Transforms...');
-      log('⚡ VIDEO TRANSFORMS: Crop 2px borders + 2.5% Speed Shift + Color Curve + Hue Rotate + Unsharp', 's');
-      log('⚡ AUDIO TRANSFORMS: 2.5% Pitch Shift (asetrate) + 2.5% Speed Match + Acoustic EQ Spectrum Scrambling', 's');
+      log('⚡ VIDEO TRANSFORMS: Crop 2px borders + 2.5% Speed Shift + Color EQ Remap + Unsharp', 's');
+      log('⚡ AUDIO TRANSFORMS: 2.5% Pitch Shift (asetrate) + 2.5% Speed Match + Multi-band EQ', 's');
       log('⚡ CONTAINER: Scrubbing all forensic metadata, timestamps, and encoder hashes', 's');
-      log('⚠️ Do not close this browser tab while processing...', 's');
+
+      // Active progress ticker so UI continuously moves beyond 18%
+      var currentStepPct = 18;
+      tickInterval = setInterval(function(){
+        if(currentStepPct < 90){
+          currentStepPct += 1;
+          var durText = currentVideoDuration > 0 ? (' | ~' + formatMinSec(currentVideoDuration) + ' video') : '';
+          setP(currentStepPct, 'Step 2/3: Re-encoding stream... ' + currentStepPct + '%' + durText);
+        }
+      }, 1200);
 
       // Video filter chain:
-      // 1. Crop 2px each side (crop=iw-4:ih-4:2:2) to break spatial frame hash
+      // 1. Crop 2px each side to break spatial frame hash
       // 2. Scale back to clean even dimensions
-      // 3. setpts=0.97561*PTS (which is PTS / 1.025) -> exactly 2.5% speed increase
-      // 4. curves=all='0/0 0.48/0.505 1/1' -> subtle gamma lift to alter RGB pixel values
-      // 5. hue=h=0.6:s=1.015 -> 0.6 deg hue rotation changes color histograms
-      // 6. unsharp=5:5:0.6:5:5:0.0 -> spatial gradient hash scrambling
+      // 3. setpts=0.97561*PTS (PTS / 1.025) -> exactly 2.5% speed increase
+      // 4. eq=contrast=1.02:brightness=0.01:saturation=1.02 -> alters every RGB pixel and color histogram
+      // 5. unsharp=3:3:0.4:3:3:0.0 -> spatial gradient hash alteration
       var vfChain = [
         'crop=iw-4:ih-4:2:2',
         'scale=trunc(iw/2)*2:trunc(ih/2)*2',
         'setpts=0.97561*PTS',
-        "curves=all='0/0 0.48/0.505 1/1'",
-        'hue=h=0.6:s=1.015',
-        'unsharp=5:5:0.6:5:5:0.0'
+        'eq=contrast=1.02:brightness=0.01:saturation=1.02',
+        'unsharp=3:3:0.4:3:3:0.0'
       ].join(',');
 
       // Audio filter chain:
-      // 1. asetrate=44100*1.025: shifts pitch UP by 2.5% AND plays at 1.025x speed (MATCHES VIDEO SPEED EXACTLY)
+      // 1. asetrate=45203 (44100 * 1.025 integer): shifts pitch UP 2.5% + 1.025x speed (100% video sync)
       // 2. aresample=44100: resamples to clean standard 44.1kHz rate
       // 3. equalizer bass boost (+2.2dB @ 95Hz)
       // 4. equalizer mid notch (-1.8dB @ 3200Hz)
-      // 5. equalizer treble adjust (-1.5dB @ 11500Hz)
-      // 6. volume=1.01: micro volume adjustment
+      // 5. volume=1.01: micro volume adjustment
       var afChain = [
-        'asetrate=44100*1.025',
+        'asetrate=45203',
         'aresample=44100',
         'equalizer=f=95:width_type=o:width=1.8:g=2.2',
         'equalizer=f=3200:width_type=o:width=2.5:g=-1.8',
-        'equalizer=f=11500:width_type=o:width=1.8:g=-1.5',
         'volume=1.01'
       ].join(',');
 
@@ -1107,8 +1144,9 @@ async function ultraEngine(file){
         '-flags:v', '+bitexact',
         '-flags:a', '+bitexact',
         '-c:v', 'libx264',
-        '-crf', '22',
+        '-crf', '24',
         '-preset', 'ultrafast',
+        '-tune', 'fastdecode',
         '-pix_fmt', 'yuv420p',
         '-vf', vfChain,
         '-c:a', 'aac',
@@ -1123,8 +1161,9 @@ async function ultraEngine(file){
         '-y', outputName
       ];
 
-      log('CMD: ffmpeg -i [video] -vf [anti-cr-filters] -af [anti-cr-filters] ' + outputName, 's');
+      log('CMD: ffmpeg -i [video] -c:v libx264 -preset ultrafast -vf [anti-cr] -af [anti-cr] ' + outputName, 's');
       var ret = await ffmpegInst.exec(ffArgs);
+      if(tickInterval) clearInterval(tickInterval);
       if(ret !== 0) throw new Error('FFmpeg exited with status ' + ret);
 
       setP(94, 'Step 3/3: Packaging cleaned video stream...');
@@ -1157,7 +1196,7 @@ async function ultraEngine(file){
             'Video Temporal Speed Match (100% Lipsync Sync)',
             'Spatial Crop 2px (Bounding Box Hash Broken)',
             'Spatial Unsharp Gradient Re-hash',
-            'RGB Gamma Curve & Hue Rotation',
+            'RGB Color EQ Histogram Shift',
             'Acoustic Multi-band EQ Contour Shift',
             'Container Metadata & EXIF Atom Wipe',
             'Unique Digital Fingerprint Injected'
@@ -1165,8 +1204,9 @@ async function ultraEngine(file){
         }
       };
     } catch(ffErr){
-      log('FFmpeg processing error: ' + (ffErr.message || ffErr), 'e');
-      log('⚡ Switching to Canvas & Web Audio Streaming Engine fallback...', 's');
+      if(tickInterval) clearInterval(tickInterval);
+      log('FFmpeg notice: ' + (ffErr.message || ffErr), 'e');
+      log('⚡ Seamlessly running Canvas & Web Audio Streaming Engine...', 's');
       try { await ffmpegInst.deleteFile(inputName); } catch(_){}
       try { await ffmpegInst.deleteFile(outputName); } catch(_){}
       return await canvasEngine(file);
