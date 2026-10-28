@@ -105,19 +105,19 @@ class VideoProcessor {
             if (hasSAB) {
                 // Desktop / browsers with COOP+COEP headers
                 this._emit('log', 'Multi-thread core loading (Desktop mode)...', 'i');
-                const BASE    = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-                const coreURL = await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript');
-                const wasmURL = await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm');
-                await this.ffmpeg.load({ coreURL, wasmURL });
-            } else {
-                // Mobile / no SharedArrayBuffer — single-thread fallback
-                this._emit('log', '⚠️ Mobile mode — loading single-thread core...', 'i');
-                this._emit('status', 'Loading Mobile-Compatible Engine...');
                 const BASE      = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/umd';
                 const coreURL   = await toBlobURL(`${BASE}/ffmpeg-core.js`,        'text/javascript');
                 const wasmURL   = await toBlobURL(`${BASE}/ffmpeg-core.wasm`,      'application/wasm');
                 const workerURL = await toBlobURL(`${BASE}/ffmpeg-core.worker.js`, 'text/javascript');
                 await this.ffmpeg.load({ coreURL, wasmURL, workerURL });
+            } else {
+                // Mobile / no SharedArrayBuffer — single-thread fallback
+                this._emit('log', '⚠️ Universal single-thread core loading...', 'i');
+                this._emit('status', 'Loading Universal Processing Engine...');
+                const BASE    = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+                const coreURL = await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript');
+                const wasmURL = await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm');
+                await this.ffmpeg.load({ coreURL, wasmURL });
             }
 
             this.isLoaded  = true;

@@ -2,7 +2,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 
-const PORT = 8085;
+const PORT = process.env.PORT || 8088;
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -22,7 +22,8 @@ const BASE_HEADERS = {
     'Access-Control-Allow-Headers': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Cross-Origin-Opener-Policy'  : 'same-origin',
-    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Embedder-Policy': 'credentialless',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
 };
 
 const server = http.createServer((req, res) => {
